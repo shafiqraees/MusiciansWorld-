@@ -1,0 +1,302 @@
+/* SoundTunnel night look — client mockup layout. Does not change the original /soundtunnel page. */
+
+.stn {
+  --stn-cyan: #2f7bff;
+  --stn-purple: #6d4aff;
+  background: #05060d;
+  color: #f4f7ff;
+}
+
+.stn-hero {
+  position: relative;
+  overflow: hidden;
+  min-height: min(88vh, 820px);
+  background: #05060d;
+}
+.stn-hero-media {
+  position: absolute;
+  inset: 0;
+}
+.stn-hero-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 72% center;
+}
+.stn-hero-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, #05060d 0%, rgba(5, 6, 13, 0.88) 38%, rgba(5, 6, 13, 0.28) 68%, rgba(5, 6, 13, 0.55) 100%),
+    linear-gradient(180deg, rgba(5, 6, 13, 0.15) 0%, rgba(5, 6, 13, 0.72) 100%);
+}
+.stn-hero-copy {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  min-height: min(88vh, 820px);
+  flex-direction: column;
+  justify-content: center;
+  padding: 7rem 0 5rem;
+}
+.stn-kicker {
+  margin: 0;
+  font-family: Outfit, Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #8ea0c8;
+}
+.stn-hero-copy h1 {
+  margin: 14px 0 0;
+  font-family: "Barlow Condensed", Impact, Arial Narrow, sans-serif;
+  font-size: clamp(3.4rem, 10vw, 7.4rem);
+  line-height: 0.86;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.stn-lead {
+  margin: 18px 0 0;
+  max-width: 34rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #f4f7ff;
+}
+.stn-body {
+  margin: 14px 0 0;
+  max-width: 36rem;
+  font-size: 0.98rem;
+  line-height: 1.7;
+  color: #b8c0d4;
+}
+
+.stn-section {
+  padding: 5rem 0;
+}
+.stn-cards {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: 1fr;
+  margin-top: -3.5rem;
+  position: relative;
+  z-index: 3;
+}
+@media (min-width: 900px) {
+  .stn-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.4rem;
+  }
+}
+.stn-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #0b0d18;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid rgba(190, 210, 255, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.stn-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.4);
+}
+.stn-card-photo {
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+}
+.stn-card-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.stn-card-body {
+  padding: 1.35rem 1.35rem 1.5rem;
+}
+.stn-card h3 {
+  margin: 0;
+  font-family: "Barlow Condensed", Impact, Arial Narrow, sans-serif;
+  font-size: 1.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.stn-card-meta {
+  margin: 0.4rem 0 0;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8ea0c8;
+}
+.stn-card p {
+  margin: 0.7rem 0 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: #b8c0d4;
+}
+.stn-card-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1.2rem;
+  min-height: 42px;
+  padding: 0 16px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.stn-cta-cyan {
+  background: var(--stn-cyan);
+  color: #fff;
+}
+.stn-cta-purple {
+  background: var(--stn-purple);
+  color: #fff;
+}
+.stn-cta-ghost {
+  border: 1px solid rgba(190, 210, 255, 0.35);
+  color: #f4f7ff;
+}
+
+.stn-split {
+  display: grid;
+  gap: 2.5rem;
+  align-items: center;
+}
+@media (min-width: 960px) {
+  .stn-split {
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 3.5rem;
+  }
+  .stn-split.is-flip {
+    grid-template-columns: 0.95fr 1.05fr;
+  }
+  .stn-split.is-flip .stn-split-media {
+    order: 2;
+  }
+}
+.stn-split-media {
+  position: relative;
+  overflow: hidden;
+  border-radius: 4px;
+  min-height: 320px;
+}
+.stn-split-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  min-height: 360px;
+}
+.stn-quote {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  max-width: 11rem;
+  font-family: "Barlow Condensed", Impact, Arial Narrow, sans-serif;
+  font-size: 1.35rem;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+.stn-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.4rem;
+  margin: 1.4rem 0 0;
+  color: #d5dcf0;
+  font-size: 13px;
+}
+.stn-stats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.stn-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.55rem 1.5rem;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+@media (min-width: 640px) {
+  .stn-list {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.stn-list li {
+  position: relative;
+  padding-left: 1.1rem;
+  color: #b8c0d4;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+.stn-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55rem;
+  width: 6px;
+  height: 6px;
+  border-radius: 99px;
+  background: var(--stn-cyan);
+}
+.stn-features {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+@media (min-width: 720px) {
+  .stn-features {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.stn-feature {
+  text-align: left;
+}
+.stn-feature svg {
+  width: 22px;
+  height: 22px;
+  color: #9aa8c9;
+}
+.stn-feature p {
+  margin: 0.45rem 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #d5dcf0;
+}
+.stn-side-mark {
+  position: absolute;
+  right: 16px;
+  bottom: 18px;
+  max-width: 7rem;
+  text-align: right;
+  font-family: "Barlow Condensed", Impact, Arial Narrow, sans-serif;
+  font-size: 1.15rem;
+  line-height: 1.05;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.stn-form {
+  border: 1px solid rgba(190, 210, 255, 0.14);
+  background: #0b0d18;
+  padding: 1.6rem;
+}
+.stn .btn.btn-mark {
+  background: var(--stn-cyan);
+  color: #fff;
+}
+.stn .btn.stn-cta-purple {
+  background: var(--stn-purple);
+  color: #fff;
+  border-color: var(--stn-purple);
+}

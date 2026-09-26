@@ -1,0 +1,432 @@
+/* Musicians World — DJ School + Membership redesign (hand-authored, no Tailwind build step) */
+
+/* ---------- shared ---------- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+}
+.icon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: color-mix(in oklab, var(--accent, var(--mark)) 16%, var(--raised));
+  border: 1px solid color-mix(in oklab, var(--accent, var(--mark)) 35%, var(--line));
+  color: var(--accent, var(--mark));
+}
+.icon-badge svg {
+  width: 26px;
+  height: 26px;
+}
+.check-list {
+  display: grid;
+  gap: 0.65rem;
+}
+.check-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--dim);
+}
+.check-list li svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 0.15rem;
+  color: var(--accent, var(--mark));
+}
+
+/* ---------- DJ School: program cards ---------- */
+.dj-card-row {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 900px) {
+  .dj-card-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.25rem;
+  }
+}
+.dj-card {
+  display: block;
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--raised);
+  text-decoration: none;
+  color: var(--text);
+  transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.dj-card:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(in oklab, var(--accent, var(--mark)) 55%, var(--line));
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.3);
+}
+.dj-card-tagline {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent, var(--mark));
+}
+.dj-card-name {
+  margin-top: 0.5rem;
+  font-size: 1.5rem;
+}
+.dj-card-body {
+  margin-top: 0.65rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--dim);
+}
+.dj-card-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 1.25rem;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent, var(--mark));
+}
+
+/* ---------- DJ School: detail sections ---------- */
+.dj-detail {
+  scroll-margin-top: 90px;
+}
+.dj-detail + .dj-detail {
+  border-top: 1px solid var(--line);
+}
+.dj-stat-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+@media (min-width: 640px) {
+  .dj-stat-row {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.dj-stat-cell {
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--raised);
+}
+.dj-stat-cell dt {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.dj-stat-cell dd {
+  margin-top: 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.dj-learn-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.6rem 1.5rem;
+  margin-top: 1.5rem;
+}
+@media (min-width: 640px) {
+  .dj-learn-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.dj-learn-grid li {
+  border-left: 2px solid var(--accent, var(--mark));
+  padding-left: 1rem;
+  font-size: 0.9rem;
+  color: var(--dim);
+}
+.dj-testimonial {
+  margin-top: 2rem;
+  padding: 1.5rem 1.75rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent, var(--mark));
+  border-radius: 4px 12px 12px 4px;
+  background: var(--raised);
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 1.3rem;
+  line-height: 1.3;
+  font-style: italic;
+}
+.dj-feature-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 2rem;
+}
+@media (min-width: 640px) {
+  .dj-feature-row {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.dj-feature-item {
+  padding: 1.25rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--raised);
+  text-align: center;
+}
+.dj-feature-item svg {
+  width: 24px;
+  height: 24px;
+  color: var(--accent, var(--mark));
+}
+.dj-feature-item p {
+  margin-top: 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--dim);
+}
+
+/* ---------- Membership: tier grid ---------- */
+.tier-grid {
+  display: grid;
+  gap: 1.1rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 640px) {
+  .tier-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1180px) {
+  .tier-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.tier-card {
+  --accent: var(--mark);
+  display: flex;
+  flex-direction: column;
+  padding: 1.75rem;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--raised);
+  transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.tier-card[data-tier="founding"] {
+  --accent: #3ee6c8;
+}
+.tier-card[data-tier="creative_network"] {
+  --accent: var(--mark-2);
+}
+.tier-card[data-tier="pro"] {
+  --accent: #f2b84b;
+}
+.tier-card:hover {
+  transform: translateY(-4px);
+}
+.tier-card.is-featured {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 45%, transparent), 0 24px 60px rgba(0, 0, 0, 0.32);
+}
+.tier-card .pill {
+  align-self: flex-start;
+  color: var(--accent);
+  border-color: color-mix(in oklab, var(--accent) 45%, var(--line));
+  background: color-mix(in oklab, var(--accent) 14%, var(--raised));
+}
+.tier-card .pill .pill-dot {
+  color: var(--accent);
+}
+.tier-card .icon-badge {
+  margin-top: 1.1rem;
+}
+.tier-name {
+  margin-top: 1rem;
+  font-size: 1.7rem;
+  line-height: 1.05;
+}
+.tier-subtitle {
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.tier-headline {
+  margin-top: 0.85rem;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--dim);
+}
+.tier-price-row {
+  margin-top: 1.25rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+.tier-price-value {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 2.4rem;
+  line-height: 1;
+}
+.tier-price-period {
+  font-size: 0.85rem;
+  color: var(--dim);
+}
+.tier-price-note {
+  margin-top: 0.25rem;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.tier-cta {
+  display: block;
+  width: 100%;
+  margin-top: 1.25rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--mark-ink);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  cursor: pointer;
+  transition: filter 0.2s ease, transform 0.2s ease;
+}
+.tier-cta:hover {
+  filter: brightness(1.08);
+}
+.tier-cta.is-ghost {
+  background: transparent;
+  color: var(--accent);
+}
+.tier-includes {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.tier-card .check-list {
+  margin-top: 0.85rem;
+  flex: 1;
+}
+.tier-disclaimer {
+  margin-top: 1.25rem;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--dim);
+  opacity: 0.75;
+}
+
+/* ---------- Long-form pages (DJ Lesson Inquiry) ---------- */
+.form-section + .form-section {
+  margin-top: 2.5rem;
+  padding-top: 2.5rem;
+  border-top: 1px solid var(--line);
+}
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem 1rem;
+  margin-top: 0.75rem;
+}
+@media (min-width: 640px) {
+  .choice-grid.cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .choice-grid.cols-7 {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+}
+.choice-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--raised);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.choice-item:has(input:checked) {
+  border-color: var(--mark);
+  background: color-mix(in oklab, var(--mark) 12%, var(--raised));
+}
+.choice-item input {
+  accent-color: var(--mark);
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+.price-ref {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 640px) {
+  .price-ref {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.price-ref-card {
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--raised);
+}
+.price-ref-card h4 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mark);
+}
+.price-ref-card ul {
+  margin-top: 0.6rem;
+  font-size: 0.85rem;
+  color: var(--dim);
+  line-height: 1.7;
+}
+
+/* Honeypot field used by every public lead form (assets/js/forms.js skips real submits, server double-checks) */
+.hp-field {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}

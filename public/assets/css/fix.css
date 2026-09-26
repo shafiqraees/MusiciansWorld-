@@ -1,0 +1,310 @@
+/* Musicians World — layout/image safety (load LAST) */
+
+/* Cover helpers */
+img.mw-cover,
+.img-frame img,
+.story-media img,
+.sa-gallery-cell img,
+.st-portrait-frame img,
+.st-venue-frame img,
+.listing-card .img-frame img,
+.space-card .img-frame img,
+.home-slide img,
+.page-hero .hero-media,
+.story-photo-img,
+.bg-photo-img {
+  object-fit: cover !important;
+}
+
+.img-frame,
+.story-media,
+.sa-gallery-cell,
+.st-portrait-frame,
+.st-venue-frame {
+  position: relative;
+  overflow: hidden;
+}
+
+.img-frame img,
+.story-media img,
+.sa-gallery-cell img,
+.st-portrait-frame img,
+.st-venue-frame img {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  object-fit: cover !important;
+}
+
+/* Missing Tailwind aspect utilities */
+.aspect-\[4\/3\],
+.space-card .img-frame {
+  aspect-ratio: 4 / 3;
+}
+.aspect-\[16\/9\] {
+  aspect-ratio: 16 / 9;
+}
+.aspect-\[2\/3\] {
+  aspect-ratio: 2 / 3;
+}
+.aspect-\[3\/4\] {
+  aspect-ratio: 3 / 4;
+}
+.aspect-\[16\/10\],
+.listing-card .img-frame {
+  aspect-ratio: 16 / 10;
+}
+
+/* Story bands — side-by-side layout (was missing → tall skinny images) */
+.story-band {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 4rem 0;
+}
+.story-grid {
+  display: grid !important;
+  gap: 1.75rem !important;
+  align-items: center !important;
+}
+@media (min-width: 768px) {
+  .story-grid {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr) !important;
+    gap: 3rem !important;
+  }
+  .story-grid.is-flip .story-media { order: 2 !important; }
+  .story-grid.is-flip .story-copy { order: 1 !important; }
+}
+.story-media {
+  position: relative !important;
+  overflow: hidden !important;
+  aspect-ratio: 16 / 10 !important;
+  border-radius: 4px;
+  background: var(--raised, #161628);
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 220px;
+}
+@media (min-width: 768px) {
+  .story-media {
+    aspect-ratio: 16 / 9 !important;
+    min-height: 320px !important;
+    max-height: 520px !important;
+  }
+  .story-media.is-portrait,
+  .story-grid.is-portrait .story-media {
+    aspect-ratio: 2 / 3 !important;
+    max-width: 420px !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin-inline: auto !important;
+  }
+}
+.story-copy { min-width: 0; }
+.story-line {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mark, #5ad8ff);
+}
+.story-body { color: var(--dim, #a8a8bc); }
+.story-photo {
+  position: relative !important;
+  isolation: isolate;
+  min-height: clamp(22rem, 70vh, 34rem) !important;
+  overflow: hidden !important;
+  padding: 4.5rem 0;
+}
+@media (min-width: 768px) {
+  .story-photo { min-height: 34rem !important; }
+}
+.story-photo-img {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: center 40% !important;
+  z-index: 0 !important;
+}
+.story-photo-copy {
+  position: relative !important;
+  z-index: 2 !important;
+}
+.bg-photo {
+  position: relative !important;
+  overflow: hidden !important;
+  min-height: clamp(22rem, 60vh, 34rem) !important;
+}
+.bg-photo-img {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
+.photo-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.12));
+  opacity: 0.55;
+}
+.photo-shade-soft {
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.04));
+  opacity: 0.5;
+}
+
+/* Studio A mosaic — grid areas (no overlap on laptop) */
+.sa-gallery {
+  display: grid !important;
+  gap: 0.5rem !important;
+  grid-template-columns: 1fr !important;
+  align-items: stretch !important;
+}
+.sa-gallery-cell {
+  position: relative !important;
+  z-index: 0 !important;
+  overflow: hidden !important;
+  border-radius: 4px;
+  background: var(--raised, #161628);
+  aspect-ratio: 16 / 10;
+  min-height: 190px;
+  min-width: 0 !important;
+}
+.sa-gallery-cell-1 {
+  aspect-ratio: 4 / 3;
+  min-height: 220px;
+}
+.sa-gallery-cell-5 {
+  aspect-ratio: 3 / 4;
+}
+@media (min-width: 640px) and (max-width: 899px) {
+  .sa-gallery {
+    grid-template-columns: 1.2fr 1fr !important;
+    grid-template-rows: 170px 170px 190px !important;
+    grid-template-areas: "a b" "a c" "d e" !important;
+  }
+  .sa-gallery-cell {
+    aspect-ratio: auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+  }
+  .sa-gallery-cell-1 { grid-area: a !important; }
+  .sa-gallery-cell-2 { grid-area: b !important; }
+  .sa-gallery-cell-3 { grid-area: c !important; }
+  .sa-gallery-cell-4 { grid-area: d !important; }
+  .sa-gallery-cell-5 { grid-area: e !important; }
+}
+@media (min-width: 900px) {
+  .sa-gallery {
+    grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+    grid-template-rows: 210px 210px 230px !important;
+    grid-template-areas: "a a a a a a a b b b b b" "a a a a a a a c c c c c" "d d d d d e e e e e e e" !important;
+  }
+  .sa-gallery-cell {
+    aspect-ratio: auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+  }
+  .sa-gallery-cell-1 { grid-area: a !important; }
+  .sa-gallery-cell-2 { grid-area: b !important; }
+  .sa-gallery-cell-3 { grid-area: c !important; }
+  .sa-gallery-cell-4 { grid-area: d !important; }
+  .sa-gallery-cell-5 { grid-area: e !important; }
+}
+@media (min-width: 1200px) {
+  .sa-gallery {
+    grid-template-rows: 240px 240px 260px !important;
+  }
+}
+
+/* Page heroes — clean dark shade, no colored wash */
+.page-hero {
+  position: relative !important;
+  overflow: hidden !important;
+  isolation: isolate !important;
+  min-height: 56vh !important;
+}
+@media (min-width: 768px) {
+  .page-hero {
+    min-height: 64vh !important;
+  }
+}
+.page-hero .hero-media {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  object-fit: cover !important;
+  object-position: center 42% !important;
+  z-index: 0 !important;
+  filter: none !important;
+  animation: none !important;
+  transform: none !important;
+}
+.page-hero-shade {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 1 !important;
+  pointer-events: none !important;
+  background:
+    linear-gradient(180deg, rgba(8, 8, 16, 0.2) 0%, rgba(8, 8, 16, 0.4) 48%, rgba(8, 8, 16, 0.92) 100%),
+    linear-gradient(90deg, rgba(8, 8, 16, 0.55) 0%, rgba(8, 8, 16, 0.18) 55%, rgba(8, 8, 16, 0.3) 100%) !important;
+}
+.page-hero .bg-fx,
+.page-hero .bg-fx-orbs,
+.page-hero .hero-spotlight {
+  display: none !important;
+}
+.page-hero .wrap {
+  position: relative !important;
+  z-index: 2 !important;
+}
+.page-hero .fade-up-d2 {
+  color: rgba(248, 249, 255, 0.92) !important;
+  text-shadow: 0 1px 16px rgba(0, 0, 0, 0.55);
+}
+.page-hero h1,
+.page-hero h1.display {
+  font-size: clamp(2.75rem, 8vw, 6.5rem) !important;
+  line-height: 0.9 !important;
+  max-width: min(16ch, 100%) !important;
+  letter-spacing: -0.03em;
+}
+
+/* Mobile typography safety for heroes */
+@media (max-width: 639px) {
+  .page-hero {
+    min-height: 52vh !important;
+  }
+  .page-hero .wrap {
+    padding-top: 6.5rem;
+    padding-bottom: 2rem;
+    min-height: 52vh;
+  }
+  .page-hero h1,
+  .page-hero h1.display {
+    font-size: clamp(2.6rem, 12vw, 3.6rem) !important;
+  }
+  .story-band,
+  .story-photo,
+  .section-block,
+  .sa-showcase {
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+  }
+  .sa-gallery-cell {
+    min-height: 180px;
+  }
+  .sa-gallery-cell-1 {
+    min-height: 210px;
+  }
+}

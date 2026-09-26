@@ -1,0 +1,204 @@
+/* Musicians World — internal admin dashboard (Sal & Zeana only) */
+
+.admin-body {
+  min-height: 100vh;
+}
+.admin-header {
+  border-bottom: 1px solid var(--line);
+  background: var(--raised);
+}
+.admin-header-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.25rem;
+  max-width: 1200px;
+  margin-inline: auto;
+  padding: 1rem 1.25rem;
+}
+.admin-brand {
+  font-family: "Barlow Condensed", sans-serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--text);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+.admin-brand span {
+  color: var(--mark);
+}
+.admin-nav {
+  display: flex;
+  gap: 1.25rem;
+  flex: 1;
+}
+.admin-nav a {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--dim);
+  text-decoration: none;
+  padding-block: 0.25rem;
+  border-bottom: 2px solid transparent;
+}
+.admin-nav a:hover {
+  color: var(--text);
+}
+.admin-nav a.is-active {
+  color: var(--text);
+  border-color: var(--mark);
+}
+.admin-user {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 13px;
+  color: var(--dim);
+}
+.admin-logout {
+  color: var(--mark);
+  text-decoration: none;
+  font-weight: 600;
+}
+.admin-main {
+  max-width: 1200px;
+  margin-inline: auto;
+  padding: 2rem 1.25rem 4rem;
+}
+.admin-login-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+.admin-login-card {
+  width: 100%;
+  max-width: 380px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--raised);
+  padding: 2.25rem;
+}
+.admin-title {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 1.9rem;
+}
+.admin-stat-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+@media (min-width: 640px) {
+  .admin-stat-row {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.admin-stat {
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--raised);
+}
+.admin-stat dt {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.admin-stat dd {
+  margin-top: 0.4rem;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 2rem;
+}
+.admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1.5rem 0;
+}
+.admin-tab {
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dim);
+  text-decoration: none;
+}
+.admin-tab.is-active {
+  border-color: var(--mark);
+  color: var(--text);
+  background: color-mix(in oklab, var(--mark) 12%, var(--raised));
+}
+.admin-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+table.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.admin-table th,
+.admin-table td {
+  padding: 0.65rem 0.9rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+.admin-table th {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+  background: var(--raised);
+  position: sticky;
+  top: 0;
+}
+.admin-table tr:last-child td {
+  border-bottom: 0;
+}
+.admin-badge {
+  display: inline-flex;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid var(--line);
+  color: var(--dim);
+}
+.admin-badge.ok {
+  color: #3ee6c8;
+  border-color: #3ee6c8;
+}
+.admin-badge.warn {
+  color: #f2b84b;
+  border-color: #f2b84b;
+}
+.admin-badge.bad {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.admin-error {
+  margin-bottom: 1.25rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  color: var(--danger);
+  font-size: 13px;
+}
+.admin-export {
+  margin-left: auto;
+}
+.admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}

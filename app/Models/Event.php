@@ -1,0 +1,5 @@
+<?php
+namespace App\Models;
+use Illuminate\Database\Eloquent\Model;
+class Event extends Model { protected $guarded=[]; protected function casts(): array { return ['doors_at'=>'datetime','starts_at'=>'datetime','ends_at'=>'datetime','submitted_at'=>'datetime','approved_at'=>'datetime','published_at'=>'datetime']; } public function organizer(){ return $this->belongsTo(User::class,'organizer_id'); } public function resource(){ return $this->belongsTo(Resource::class); } public function ticketTypes(){ return $this->hasMany(TicketType::class); } public function orders(){ return $this->hasMany(Order::class); } public function services(){ return $this->belongsToMany(EventService::class)->withPivot(['quantity','unit_price_cents','status']); } public function settlement(){ return $this->hasOne(OrganizerSettlement::class); } }
+
