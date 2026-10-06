@@ -1,1 +1,13 @@
-<?php page_start('Host an event ? MusiciansWorld'); ?><section class="section"><div class="wrap max-w-4xl"><p class="kicker">Promoter platform</p><h1 class="display mt-3 text-5xl">Create your event</h1><p class="mt-4 text-dim">Save a draft, configure tickets and submit it to MWCN for approval.</p>@include('events.partials.form',['action'=>route('organizer.events.store'),'method'=>'POST','event'=>null])</div></section><?php page_end(); ?>
+@extends('account.layout', ['title' => 'Host an event', 'current' => 'events'])
+
+@section('content')
+<div class="acct-head">
+  <div>
+    <p class="kicker"><a href="{{ route('account.events') }}" style="color:inherit">My Events</a> · Promoter platform</p>
+    <h1>Create your event</h1>
+    <p>Save a draft, configure tickets and services, then submit it to MWCN for approval. Your platform fee tier is {{ \App\Support\Finance::percent($feeBps) }} of paid ticket sales{{ $feeBps > 300 ? ' — Founding Members pay 3%' : '' }}.</p>
+  </div>
+  <a class="btn btn-ghost" href="{{ route('account.events') }}">Back to My Events</a>
+</div>
+@include('events.partials.form', ['action' => route('organizer.events.store'), 'method' => 'POST', 'event' => null])
+@endsection

@@ -55,6 +55,7 @@ class DemoDataSeeder extends Seeder
                         'state' => 'AZ',
                         'postal_code' => '85004',
                         'status' => 'active',
+                        'account_type' => in_array($role, Role::ADMIN_ROLES, true) ? User::TYPE_ADMIN : (in_array($role, Role::STAFF_ROLES, true) ? User::TYPE_STAFF : User::TYPE_CUSTOMER),
                         'email_verified_at' => now()->subMonths(2),
                         'communication_preferences' => ['email' => true, 'sms' => $role === 'customer'],
                         'password' => $password,

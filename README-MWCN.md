@@ -19,11 +19,16 @@ Open `http://127.0.0.1:8000`.
 
 Admin:
 
-- URL: `http://127.0.0.1:8000/admin`
+- Admin login: `http://127.0.0.1:8000/admin/login` (customers sign in at `/login`)
+- Portal: `http://127.0.0.1:8000/admin`
 - Email: `admin@musiciansworld.com`
 - Initial password: `Admin1234`
 
 Change the initial password before production launch.
+
+Customer portal (`/account`, left-sidebar modules): Overview, My Profile, My Membership, Benefits, My Bookings, DJ School, My Tickets, My Events (promoter workspace with per-event settlement statement and ledger at `/account/events/{id}`), Payments & Receipts (`/account/payments`, printable receipts with the MWCN fee / organizer split).
+
+Money flow for ticket sales is recorded in `financial_transactions` per order: `gross_ticket_revenue` → `mwcn_platform_fee` (event `platform_fee_bps`, 3% Founder / 5% Community) → `payment_processing` → `organizer_proceeds`; settlements and transfers are added at closeout. The same ledger is shown to customers (Payments), promoters (My Events) and staff (Admin → Finance → Transactions, permission `reports.view`).
 
 ## Background automation
 

@@ -37,7 +37,17 @@ class EventController extends Controller
         );
         $request->user()->roles()->syncWithoutDetaching([Role::where('name', 'organizer')->value('id')]);
         $services = \App\Models\EventService::where('is_active', true)->get();
-        return view('events.create', compact('profile', 'services'));
+        $feeBps = (int) $this->platformFeeFor($request->user());
+        return view('events.create', compact('profile', 'services', 'feeBps'));
+    }
+
+    private function platformFeeFor($user): int
+    {
+        $membership = $user->activeMembership();
+
+        return $membership?->plan?->slug === 'founder'
+            ? (int) PlatformSetting::valueOf('promoter.founder.bps', 300)
+            : (int) PlatformSetting::valueOf('promoter.community.bps', 500);
     }
 
     public function store(Request $request)
@@ -45,10 +55,7 @@ class EventController extends Controller
         $data = $this->validated($request);
         $event = DB::transaction(function () use ($request, $data) {
             $resourceId = $data['location_type'] === 'soundtunnel' ? Resource::where('slug', 'soundtunnel')->value('id') : null;
-            $membership = $request->user()->activeMembership();
-            $fee = $membership?->plan?->slug === 'founder'
-                ? PlatformSetting::valueOf('promoter.founder.bps', 300)
-                : PlatformSetting::valueOf('promoter.community.bps', 500);
+            $fee = $this->platformFeeFor($request->user());
             $event = Event::create([
                 ...$data,
                 'reference' => 'EVT-'.strtoupper(Str::random(10)),
@@ -68,14 +75,17 @@ class EventController extends Controller
     public function edit(Request $request, Event $event)
     {
         abort_unless($event->organizer_id === $request->user()->id, 403);
-        $event->load('ticketTypes', 'services', 'settlement');
+        $event->load('ticketTypes', 'services', 'settlement', 'resource');
         $services = \App\Models\EventService::where('is_active', true)->get();
         return view('events.edit', compact('event', 'services'));
     }
 
     public function update(Request $request, Event $event)
     {
-        abort_unless($event->organizer_id === $request->user()->id && in_array($event->status, ['draft', 'changes_requested'], true), 403);
+        abort_unless($event->organizer_id === $request->user()->id, 403);
+        if (!in_array($event->status, ['draft', 'changes_requested', 'rejected'], true)) {
+            return back()->withErrors(['event' => 'This event is locked while MWCN reviews or runs it.']);
+        }
         $before = $event->toArray();
         $event->update($this->validated($request));
         $this->syncTicketTypes($event, $request->input('tickets', []));
@@ -86,24 +96,52 @@ class EventController extends Controller
 
     public function submit(Request $request, Event $event)
     {
-        abort_unless($event->organizer_id === $request->user()->id && in_array($event->status, ['draft', 'changes_requested'], true), 403);
-        abort_if($event->ticketTypes()->count() === 0, 422, 'At least one ticket type is required.');
+        abort_unless($event->organizer_id === $request->user()->id, 403);
+        if (!in_array($event->status, ['draft', 'changes_requested', 'rejected'], true)) {
+            return back()->withErrors(['event' => 'This event has already been submitted.']);
+        }
+        if ($event->ticketTypes()->count() === 0) {
+            return back()->withErrors(['tickets' => 'Add at least one ticket type and save before submitting.']);
+        }
+        if ($event->starts_at->isPast()) {
+            return back()->withErrors(['starts_at' => 'The start time has passed. Update the schedule before submitting.']);
+        }
         $event->update(['status' => 'submitted', 'submitted_at' => now()]);
         AuditLog::create(['actor_id' => $request->user()->id, 'action' => 'event.submitted', 'auditable_type' => Event::class, 'auditable_id' => $event->id, 'after' => $event->fresh()->toArray(), 'ip_address' => $request->ip()]);
         return back()->with('success', 'Event submitted to MWCN for review.');
     }
 
+    /** Times are entered and stored in the venue's local time (Arizona), matching the platform clock. */
+    private const INPUT_TIMEZONE = 'America/Phoenix';
+
     private function validated(Request $request): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'title' => ['required', 'string', 'max:190'], 'category' => ['nullable', 'string', 'max:100'],
             'description' => ['required', 'string'], 'location_type' => ['required', 'in:soundtunnel,external,virtual'],
-            'venue_name' => ['nullable', 'string'], 'venue_address' => ['nullable', 'string'],
-            'virtual_access' => ['nullable', 'string'], 'doors_at' => ['nullable', 'date'],
-            'starts_at' => ['required', 'date', 'after:now'], 'ends_at' => ['required', 'date', 'after:starts_at'],
+            'venue_name' => ['nullable', 'string', 'max:190', 'required_if:location_type,external'], 'venue_address' => ['nullable', 'string', 'max:255'],
+            'virtual_access' => ['nullable', 'string', 'max:500'], 'doors_at' => ['nullable', 'date'],
+            'starts_at' => ['required', 'date'], 'ends_at' => ['required', 'date', 'after:starts_at'],
             'setup_minutes' => ['nullable', 'integer', 'min:0', 'max:1440'], 'teardown_minutes' => ['nullable', 'integer', 'min:0', 'max:1440'],
             'capacity' => ['required', 'integer', 'min:1', 'max:100000'], 'visibility' => ['required', 'in:public,private'],
+        ], [
+            'venue_name.required_if' => 'Enter the venue name for an event held at another venue.',
+            'ends_at.after' => 'The end time must be after the start time.',
         ]);
+
+        foreach (['starts_at', 'ends_at', 'doors_at'] as $field) {
+            if (!empty($data[$field])) {
+                $data[$field] = \Illuminate\Support\Carbon::parse($data[$field], self::INPUT_TIMEZONE);
+            }
+        }
+        if ($data['starts_at']->isPast()) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['starts_at' => 'The start time must be in the future.']);
+        }
+        if (!empty($data['doors_at']) && $data['doors_at']->gt($data['starts_at'])) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['doors_at' => 'Doors must open before the event starts.']);
+        }
+
+        return $data;
     }
 
     private function syncTicketTypes(Event $event, array $tickets): void

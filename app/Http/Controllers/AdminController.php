@@ -2,31 +2,35 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Admin\Concerns\RecordsAudit;
 use App\Models\AuditLog;
-use App\Models\AvailabilityBlock;
-use App\Models\Benefit;
 use App\Models\Booking;
 use App\Models\Event;
-use App\Models\IntegrationJob;
+use App\Models\EventService;
 use App\Models\FinancialTransaction;
 use App\Models\FormSubmission;
-use App\Models\MembershipPlan;
-use App\Models\PricingRule;
+use App\Models\IntegrationJob;
 use App\Models\OrganizerSettlement;
-use App\Models\PlatformSetting;
 use App\Models\Permission;
 use App\Models\Resource;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\MicrosoftCalendarService;
 use App\Services\SettlementService;
 use App\Services\StripeService;
-use App\Services\MicrosoftCalendarService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use RuntimeException;
 
 class AdminController extends Controller
 {
+    use RecordsAudit;
+
+    public const BOOKING_STATUSES = ['pending_payment' => 'Pending payment', 'confirmed' => 'Confirmed', 'paid' => 'Paid', 'admin_hold' => 'Admin hold', 'cancelled' => 'Cancelled', 'expired' => 'Expired', 'refunded' => 'Refunded', 'failed' => 'Failed'];
+    public const PAYMENT_STATUSES = ['paid' => 'Paid', 'pending' => 'Pending', 'failed' => 'Failed', 'cancelled' => 'Cancelled', 'expired' => 'Expired', 'refunded' => 'Refunded'];
+    public const EVENT_STATUSES = ['draft' => 'Draft', 'submitted' => 'Submitted', 'changes_requested' => 'Changes requested', 'approved' => 'Approved', 'published' => 'Published', 'suspended' => 'Suspended', 'rejected' => 'Rejected', 'completed' => 'Completed', 'closeout' => 'Closeout'];
+
     public function dashboard()
     {
         $metrics = [
@@ -53,155 +57,193 @@ class AdminController extends Controller
 
     public function bookings(Request $request)
     {
-        $query = Booking::with('resource', 'user')->latest();
+        $query = Booking::with('resource', 'user')->latest('starts_at');
+        if ($request->filled('search')) {
+            $search = '%'.$request->string('search')->trim().'%';
+            $query->where(fn ($q) => $q->where('reference', 'like', $search)->orWhere('customer_name', 'like', $search)->orWhere('customer_email', 'like', $search)->orWhere('customer_phone', 'like', $search));
+        }
         if ($request->filled('payment')) {
             $query->where('payment_status', $request->string('payment'));
         }
-        return view('admin.bookings', ['bookings' => $query->paginate(50)]);
+        if ($request->filled('status')) {
+            $query->where('status', $request->string('status'));
+        }
+        if ($request->filled('resource')) {
+            $query->where('resource_id', (int) $request->input('resource'));
+        }
+        if ($request->filled('from')) {
+            $query->where('starts_at', '>=', \Carbon\Carbon::parse($request->input('from'))->startOfDay());
+        }
+        if ($request->filled('to')) {
+            $query->where('starts_at', '<=', \Carbon\Carbon::parse($request->input('to'))->endOfDay());
+        }
+        if ($request->input('when') === 'upcoming') {
+            $query->where('starts_at', '>=', now());
+        } elseif ($request->input('when') === 'past') {
+            $query->where('starts_at', '<', now());
+        }
+
+        $stats = [
+            'upcoming' => Booking::where('starts_at', '>=', now())->whereIn('status', ['confirmed', 'paid'])->count(),
+            'pending' => Booking::where('payment_status', 'pending')->count(),
+            'revenue_cents' => (int) Booking::where('payment_status', 'paid')->where('starts_at', '>=', now()->startOfMonth())->sum('total_cents'),
+            'sync_issues' => Booking::where('calendar_sync_status', 'failed')->count(),
+        ];
+
+        return view('admin.bookings', [
+            'bookings' => $query->paginate(25)->withQueryString(),
+            'resources' => Resource::orderBy('name')->get(),
+            'stats' => $stats,
+            'statuses' => self::BOOKING_STATUSES,
+            'paymentStatuses' => self::PAYMENT_STATUSES,
+        ]);
     }
 
-    public function bookingStatus(Request $request, Booking $booking, MicrosoftCalendarService $calendar)
+    public function updateBooking(Request $request, Booking $booking, MicrosoftCalendarService $calendar)
     {
-        $data = $request->validate(['payment_status' => ['required', 'in:paid,pending,failed,cancelled,expired,refunded'], 'reason' => ['required', 'string', 'max:500']]);
+        $data = $request->validate([
+            'payment_status' => ['required', Rule::in(array_keys(self::PAYMENT_STATUSES))],
+            'status' => ['nullable', Rule::in(array_keys(self::BOOKING_STATUSES))],
+            'customer_name' => ['required', 'string', 'max:150'],
+            'customer_email' => ['required', 'email', 'max:190'],
+            'customer_phone' => ['nullable', 'string', 'max:40'],
+            'notes' => ['nullable', 'string', 'max:3000'],
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
         $before = $booking->toArray();
+        $paymentChanged = $booking->payment_status !== $data['payment_status'];
+        $status = $data['status'] ?? null;
+        if ($paymentChanged && !$status) {
+            $status = $data['payment_status'] === 'paid' ? 'confirmed' : ($data['payment_status'] === 'pending' ? $booking->status : $data['payment_status']);
+        }
         $booking->update([
             'payment_status' => $data['payment_status'],
-            'status' => $data['payment_status'] === 'paid' ? 'confirmed' : ($data['payment_status'] === 'pending' ? $booking->status : $data['payment_status']),
+            'status' => $status ?: $booking->status,
+            'customer_name' => $data['customer_name'],
+            'customer_email' => strtolower($data['customer_email']),
+            'customer_phone' => $data['customer_phone'] ?? null,
+            'notes' => $data['notes'] ?? null,
         ]);
-        if ($data['payment_status'] === 'paid') {
+        if ($paymentChanged && $data['payment_status'] === 'paid') {
             $calendar->syncBooking($booking->fresh('resource'));
-        } elseif ($data['payment_status'] === 'cancelled') {
+        } elseif ($paymentChanged && $data['payment_status'] === 'cancelled') {
             $calendar->cancelBooking($booking->fresh('resource'));
         }
-        $this->audit($request, 'booking.payment_status', $booking, $before, $data['reason']);
-        return back()->with('success', 'Booking payment status updated.');
+        $this->audit($request, $paymentChanged ? 'booking.payment_status' : 'booking.updated', $booking, $before, $data['reason']);
+        return back()->with('success', 'Booking '.$booking->reference.' updated.');
     }
 
-    public function events()
+    public function events(Request $request)
     {
-        return view('admin.events', ['events' => Event::with('organizer', 'resource', 'settlement')->latest()->paginate(50)]);
+        $query = Event::with('organizer', 'resource', 'settlement', 'reviewer')->withCount('ticketTypes')->withSum('ticketTypes as tickets_sold', 'sold_count')->latest('starts_at');
+        if ($request->filled('search')) {
+            $search = '%'.$request->string('search')->trim().'%';
+            $query->where(fn ($q) => $q->where('title', 'like', $search)->orWhere('reference', 'like', $search)->orWhereHas('organizer', fn ($o) => $o->where('name', 'like', $search)->orWhere('email', 'like', $search)));
+        }
+        if ($request->filled('status')) {
+            $query->where('status', $request->string('status'));
+        }
+        if ($request->filled('location')) {
+            $query->where('location_type', $request->string('location'));
+        }
+        if ($request->input('when') === 'upcoming') {
+            $query->where('starts_at', '>=', now());
+        } elseif ($request->input('when') === 'past') {
+            $query->where('starts_at', '<', now());
+        }
+
+        $stats = [
+            'pending' => Event::where('status', 'submitted')->count(),
+            'published' => Event::where('status', 'published')->where('ends_at', '>', now())->count(),
+            'tickets' => (int) DB::table('ticket_types')->sum('sold_count'),
+            'payouts' => OrganizerSettlement::whereIn('status', ['pending_closeout', 'ready', 'approved'])->count(),
+        ];
+
+        return view('admin.events', [
+            'events' => $query->paginate(25)->withQueryString(),
+            'services' => EventService::where('is_active', true)->orderBy('name')->get(),
+            'stats' => $stats,
+            'statuses' => self::EVENT_STATUSES,
+            'locations' => ['soundtunnel' => 'SoundTunnel', 'external' => 'External venue', 'virtual' => 'Virtual'],
+        ]);
+    }
+
+    public function updateEvent(Request $request, Event $event)
+    {
+        $data = $request->validate([
+            'title' => ['required', 'string', 'max:190'],
+            'category' => ['nullable', 'string', 'max:100'],
+            'description' => ['required', 'string'],
+            'location_type' => ['required', 'in:soundtunnel,external,virtual'],
+            'venue_name' => ['nullable', 'string', 'max:190'],
+            'venue_address' => ['nullable', 'string', 'max:500'],
+            'virtual_access' => ['nullable', 'string', 'max:500'],
+            'doors_at' => ['nullable', 'date'],
+            'starts_at' => ['required', 'date'],
+            'ends_at' => ['required', 'date', 'after:starts_at'],
+            'setup_minutes' => ['nullable', 'integer', 'min:0', 'max:1440'],
+            'teardown_minutes' => ['nullable', 'integer', 'min:0', 'max:1440'],
+            'capacity' => ['required', 'integer', 'min:1', 'max:100000'],
+            'visibility' => ['required', 'in:public,private'],
+            'platform_fee_bps' => ['required', 'integer', 'min:0', 'max:5000'],
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+        $before = $event->toArray();
+        $resourceId = $data['location_type'] === 'soundtunnel' ? Resource::where('slug', 'soundtunnel')->value('id') : null;
+        $event->update(collect($data)->except('reason')->all() + [
+            'resource_id' => $resourceId,
+            'setup_minutes' => (int) ($data['setup_minutes'] ?? 0),
+            'teardown_minutes' => (int) ($data['teardown_minutes'] ?? 0),
+        ]);
+        $this->audit($request, 'event.updated_by_admin', $event, $before, $data['reason']);
+        return back()->with('success', 'Event "'.$event->title.'" updated.');
     }
 
     public function reviewEvent(Request $request, Event $event)
     {
         $data = $request->validate(['action' => ['required', 'in:approve,reject,request_changes,suspend,publish,complete'], 'notes' => ['nullable', 'string', 'max:3000']]);
         $before = $event->toArray();
-        DB::transaction(function () use ($request, $event, $data) {
-            $event = Event::whereKey($event->id)->lockForUpdate()->firstOrFail();
-            if ($data['action'] === 'approve' && $event->resource_id) {
-                $start = $event->starts_at->copy()->subMinutes($event->setup_minutes);
-                $end = $event->ends_at->copy()->addMinutes($event->teardown_minutes);
-                $bookingConflict = Booking::where('resource_id', $event->resource_id)
-                    ->where('starts_at', '<', $end)->where('ends_at', '>', $start)
-                    ->whereIn('status', ['confirmed', 'paid', 'admin_hold'])->exists();
-                $eventConflict = Event::where('resource_id', $event->resource_id)->whereKeyNot($event->id)
-                    ->whereIn('status', ['approved', 'published', 'completed', 'closeout'])
-                    ->where('starts_at', '<', $end->copy()->addDay())->where('ends_at', '>', $start->copy()->subDay())
-                    ->get()->contains(fn (Event $other) =>
-                        $other->starts_at->copy()->subMinutes($other->setup_minutes)->lt($end)
-                        && $other->ends_at->copy()->addMinutes($other->teardown_minutes)->gt($start)
-                    );
-                if ($bookingConflict || $eventConflict) {
-                    throw new RuntimeException('SoundTunnel is unavailable during this event window.');
+        try {
+            DB::transaction(function () use ($request, $event, $data) {
+                $event = Event::whereKey($event->id)->lockForUpdate()->firstOrFail();
+                if ($data['action'] === 'approve' && $event->resource_id) {
+                    $start = $event->starts_at->copy()->subMinutes($event->setup_minutes);
+                    $end = $event->ends_at->copy()->addMinutes($event->teardown_minutes);
+                    $bookingConflict = Booking::where('resource_id', $event->resource_id)
+                        ->where('starts_at', '<', $end)->where('ends_at', '>', $start)
+                        ->whereIn('status', ['confirmed', 'paid', 'admin_hold'])->exists();
+                    $eventConflict = Event::where('resource_id', $event->resource_id)->whereKeyNot($event->id)
+                        ->whereIn('status', ['approved', 'published', 'completed', 'closeout'])
+                        ->where('starts_at', '<', $end->copy()->addDay())->where('ends_at', '>', $start->copy()->subDay())
+                        ->get()->contains(fn (Event $other) =>
+                            $other->starts_at->copy()->subMinutes($other->setup_minutes)->lt($end)
+                            && $other->ends_at->copy()->addMinutes($other->teardown_minutes)->gt($start)
+                        );
+                    if ($bookingConflict || $eventConflict) {
+                        throw new RuntimeException('SoundTunnel is unavailable during this event window.');
+                    }
                 }
-            }
-            $status = match ($data['action']) {
-                'approve' => 'approved', 'reject' => 'rejected', 'request_changes' => 'changes_requested',
-                'suspend' => 'suspended', 'publish' => 'published', 'complete' => 'completed',
-            };
-            abort_if($status === 'published' && $event->status !== 'approved', 422, 'Approve the event before publishing.');
-            $event->update([
-                'status' => $status, 'review_notes' => $data['notes'] ?? null, 'reviewed_by' => $request->user()->id,
-                'approved_at' => $status === 'approved' ? now() : $event->approved_at,
-                'published_at' => $status === 'published' ? now() : $event->published_at,
-            ]);
-            if ($status === 'completed') {
-                OrganizerSettlement::firstOrCreate(['event_id' => $event->id], ['status' => 'pending_closeout']);
-            }
-        }, 3);
+                $status = match ($data['action']) {
+                    'approve' => 'approved', 'reject' => 'rejected', 'request_changes' => 'changes_requested',
+                    'suspend' => 'suspended', 'publish' => 'published', 'complete' => 'completed',
+                };
+                if ($status === 'published' && $event->status !== 'approved') {
+                    throw new RuntimeException('Approve the event before publishing.');
+                }
+                $event->update([
+                    'status' => $status, 'review_notes' => $data['notes'] ?? null, 'reviewed_by' => $request->user()->id,
+                    'approved_at' => $status === 'approved' ? now() : $event->approved_at,
+                    'published_at' => $status === 'published' ? now() : $event->published_at,
+                ]);
+                if ($status === 'completed') {
+                    OrganizerSettlement::firstOrCreate(['event_id' => $event->id], ['status' => 'pending_closeout']);
+                }
+            }, 3);
+        } catch (RuntimeException $exception) {
+            return back()->withErrors(['action' => $exception->getMessage()])->with('modal', 'event-'.$event->id);
+        }
         $this->audit($request, 'event.'.$data['action'], $event, $before, $data['notes'] ?? null);
-        return back()->with('success', 'Event status updated.');
-    }
-
-    public function settings()
-    {
-        return view('admin.settings', [
-            'settings' => PlatformSetting::orderBy('group')->orderBy('key')->get(),
-            'plans' => MembershipPlan::with('benefits')->orderBy('sort_order')->get(),
-            'benefits' => Benefit::orderBy('name')->get(),
-            'resources' => Resource::with('pricingRules')->get(),
-            'holds' => AvailabilityBlock::with('resource')->where('ends_at', '>', now())->orderBy('starts_at')->get(),
-        ]);
-    }
-
-    public function updateSetting(Request $request, PlatformSetting $setting)
-    {
-        $data = $request->validate(['value' => ['nullable', 'string'], 'reason' => ['required', 'string', 'max:500']]);
-        $before = $setting->toArray();
-        $setting->update(['value' => $data['value']]);
-        $this->audit($request, 'setting.updated', $setting, $before, $data['reason']);
-        return back()->with('success', 'Setting updated.');
-    }
-
-    public function updatePlan(Request $request, MembershipPlan $plan)
-    {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:150'], 'price' => ['required', 'numeric', 'min:0'],
-            'billing_interval' => ['required', 'in:month,year,one_time'], 'stripe_price_id' => ['nullable', 'string'],
-            'is_active' => ['nullable', 'boolean'], 'reason' => ['required', 'string', 'max:500'],
-        ]);
-        $before = $plan->toArray();
-        $plan->update([
-            'name' => $data['name'], 'price_cents' => (int) round($data['price'] * 100),
-            'billing_interval' => $data['billing_interval'], 'stripe_price_id' => $data['stripe_price_id'] ?? null,
-            'is_active' => $request->boolean('is_active'),
-        ]);
-        $this->audit($request, 'membership_plan.updated', $plan, $before, $data['reason']);
-        return back()->with('success', 'Membership plan updated.');
-    }
-
-    public function updatePricing(Request $request, PricingRule $rule)
-    {
-        $data = $request->validate(['price' => ['required', 'numeric', 'min:0'], 'is_active' => ['nullable', 'boolean'], 'reason' => ['required', 'string', 'max:500']]);
-        $before = $rule->toArray();
-        $rule->update(['price_cents' => (int) round($data['price'] * 100), 'is_active' => $request->boolean('is_active')]);
-        $this->audit($request, 'pricing_rule.updated', $rule, $before, $data['reason']);
-        return back()->with('success', 'Resource price updated.');
-    }
-
-    public function updateBenefit(Request $request, MembershipPlan $plan, Benefit $benefit)
-    {
-        $data = $request->validate(['value' => ['nullable', 'string', 'max:255'], 'reason' => ['required', 'string', 'max:500']]);
-        $before = $plan->benefits()->whereKey($benefit->id)->first()?->pivot?->value;
-        $plan->benefits()->syncWithoutDetaching([$benefit->id => ['value' => $data['value']]]);
-        AuditLog::create([
-            'actor_id' => $request->user()->id, 'action' => 'membership_benefit.updated',
-            'auditable_type' => MembershipPlan::class, 'auditable_id' => $plan->id,
-            'before' => ['benefit' => $benefit->key, 'value' => $before],
-            'after' => ['benefit' => $benefit->key, 'value' => $data['value']],
-            'reason' => $data['reason'], 'ip_address' => $request->ip(),
-        ]);
-        return back()->with('success', 'Membership benefit updated.');
-    }
-
-    public function createHold(Request $request)
-    {
-        $data = $request->validate([
-            'resource_id' => ['required', 'exists:resources,id'], 'starts_at' => ['required', 'date'],
-            'ends_at' => ['required', 'date', 'after:starts_at'], 'type' => ['required', 'in:admin_hold,maintenance'],
-            'reason' => ['required', 'string', 'max:500'],
-        ]);
-        $hold = AvailabilityBlock::create($data + ['created_by' => $request->user()->id]);
-        AuditLog::create(['actor_id' => $request->user()->id, 'action' => 'availability_hold.created', 'auditable_type' => AvailabilityBlock::class, 'auditable_id' => $hold->id, 'after' => $hold->toArray(), 'reason' => $data['reason'], 'ip_address' => $request->ip()]);
-        return back()->with('success', 'Availability hold created.');
-    }
-
-    public function deleteHold(Request $request, AvailabilityBlock $hold)
-    {
-        $before = $hold->toArray();
-        $hold->delete();
-        AuditLog::create(['actor_id' => $request->user()->id, 'action' => 'availability_hold.deleted', 'auditable_type' => AvailabilityBlock::class, 'auditable_id' => $hold->id, 'before' => $before, 'reason' => 'Removed by administrator', 'ip_address' => $request->ip()]);
-        return back()->with('success', 'Availability hold removed.');
+        return back()->with('success', 'Event "'.$event->title.'" is now '.str_replace('_', ' ', $event->fresh()->status).'.');
     }
 
     public function failures()
@@ -244,22 +286,6 @@ class AdminController extends Controller
         return view('admin.audit', ['logs' => AuditLog::with('actor')->latest()->paginate(100)]);
     }
 
-    public function customers(Request $request)
-    {
-        $query = User::with('memberships.plan', 'roles')->latest();
-        if ($request->filled('search')) {
-            $search = '%'.$request->string('search')->trim().'%';
-            $query->where(fn ($row) => $row->where('name', 'like', $search)->orWhere('email', 'like', $search)->orWhere('phone', 'like', $search));
-        }
-        if ($request->filled('role')) {
-            $query->whereHas('roles', fn ($row) => $row->where('name', $request->string('role')));
-        }
-        return view('admin.customers', [
-            'customers' => $query->paginate(50)->withQueryString(),
-            'roles' => Role::orderBy('label')->get(),
-        ]);
-    }
-
     public function roles()
     {
         return view('admin.roles', [
@@ -282,36 +308,8 @@ class AdminController extends Controller
             $role->update(['label' => $data['label']]);
             $role->permissionRecords()->sync($data['permissions'] ?? []);
         });
-        AuditLog::create([
-            'actor_id' => $request->user()->id, 'action' => 'role.permissions_synced',
-            'auditable_type' => Role::class, 'auditable_id' => $role->id,
-            'before' => $before,
-            'after' => ['label' => $role->fresh()->label, 'permissions' => $role->permissionRecords()->pluck('permissions.id')->all()],
-            'reason' => $data['reason'], 'ip_address' => $request->ip(),
-        ]);
+        $this->audit($request, 'role.permissions_synced', $role, $before, $data['reason'], ['label' => $role->fresh()->label, 'permissions' => $role->permissionRecords()->pluck('permissions.id')->all()]);
         return back()->with('success', $role->label.' permissions synchronized.');
-    }
-
-    public function updateRoles(Request $request, User $user)
-    {
-        $data = $request->validate(['roles' => ['nullable', 'array'], 'roles.*' => ['integer', 'exists:roles,id'], 'reason' => ['required', 'string', 'max:500']]);
-        $superAdminRoleId = Role::where('name', 'super_admin')->value('id');
-        $keepsSuperAdmin = in_array($superAdminRoleId, array_map('intval', $data['roles'] ?? []), true);
-        if ($user->hasRole('super_admin') && !$keepsSuperAdmin) {
-            $otherSuperAdmins = User::whereKeyNot($user->id)->whereHas('roles', fn ($query) => $query->where('name', 'super_admin'))->exists();
-            if ($user->is($request->user()) || !$otherSuperAdmins) {
-                return back()->withErrors(['roles' => 'You cannot remove the active or final Super Admin role.']);
-            }
-        }
-        $before = $user->roles()->pluck('roles.id')->all();
-        $user->roles()->sync($data['roles'] ?? []);
-        AuditLog::create([
-            'actor_id' => $request->user()->id, 'action' => 'user.roles_updated',
-            'auditable_type' => User::class, 'auditable_id' => $user->id,
-            'before' => ['role_ids' => $before], 'after' => ['role_ids' => $data['roles'] ?? []],
-            'reason' => $data['reason'], 'ip_address' => $request->ip(),
-        ]);
-        return back()->with('success', 'Customer roles updated.');
     }
 
     public function submissions(Request $request)
@@ -341,11 +339,14 @@ class AdminController extends Controller
         return response()->streamDownload(function () use ($type) {
             $out = fopen('php://output', 'w');
             if ($type === 'members') {
-                fputcsv($out, ['ID', 'Name', 'Email', 'Phone', 'Status']);
-                User::orderBy('id')->each(fn ($row) => fputcsv($out, [$row->id, $row->name, $row->email, $row->phone, $row->status]));
+                fputcsv($out, ['ID', 'Name', 'Email', 'Phone', 'Account type', 'Status', 'Roles', 'Joined']);
+                User::with('roles')->orderBy('id')->each(fn ($row) => fputcsv($out, [$row->id, $row->name, $row->email, $row->phone, $row->account_type, $row->status, $row->roles->pluck('label')->join('; '), $row->created_at]));
             } elseif ($type === 'leads') {
                 fputcsv($out, ['ID', 'Type', 'Status', 'Name', 'Email', 'Phone', 'Created']);
                 FormSubmission::orderBy('id')->each(fn ($row) => fputcsv($out, [$row->id, $row->type, $row->status, $row->name, $row->email, $row->phone, $row->created_at]));
+            } elseif ($type === 'events') {
+                fputcsv($out, ['Reference', 'Title', 'Organizer', 'Starts', 'Ends', 'Location', 'Capacity', 'Status']);
+                Event::with('organizer')->orderBy('id')->each(fn ($row) => fputcsv($out, [$row->reference, $row->title, $row->organizer?->name, $row->starts_at, $row->ends_at, $row->location_type, $row->capacity, $row->status]));
             } else {
                 fputcsv($out, ['Reference', 'Resource', 'Start', 'End', 'Customer', 'Email', 'Total', 'Status', 'Payment']);
                 Booking::with('resource')->orderBy('id')->each(fn ($row) => fputcsv($out, [$row->reference, $row->resource->name, $row->starts_at, $row->ends_at, $row->customer_name, $row->customer_email, number_format($row->total_cents / 100, 2, '.', ''), $row->status, $row->payment_status]));
@@ -375,15 +376,5 @@ class AdminController extends Controller
         } catch (RuntimeException $exception) {
             return back()->withErrors(['settlement' => $exception->getMessage()]);
         }
-    }
-
-    private function audit(Request $request, string $action, $model, array $before, ?string $reason): void
-    {
-        AuditLog::create([
-            'actor_id' => $request->user()->id, 'action' => $action,
-            'auditable_type' => $model::class, 'auditable_id' => $model->id,
-            'before' => $before, 'after' => $model->fresh()->toArray(),
-            'reason' => $reason, 'ip_address' => $request->ip(),
-        ]);
     }
 }

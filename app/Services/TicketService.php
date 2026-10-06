@@ -86,8 +86,8 @@ class TicketService
                 }
                 $type->increment('sold_count', $item->quantity);
             }
-            $order->update(['status' => 'completed', 'payment_status' => 'paid', 'stripe_payment_intent_id' => $paymentIntent]);
             $platformFee = (int) round($order->subtotal_cents * $order->event->platform_fee_bps / 10000);
+            $order->update(['status' => 'completed', 'payment_status' => 'paid', 'stripe_payment_intent_id' => $paymentIntent, 'platform_fee_cents' => $platformFee]);
             foreach ([
                 'gross_ticket_revenue' => $order->subtotal_cents,
                 'mwcn_platform_fee' => $platformFee,

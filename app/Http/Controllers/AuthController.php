@@ -62,30 +62,67 @@ class AuthController extends Controller
         return view('auth.login');
     }
 
+    /** Customer sign-in (public website). */
     public function login(Request $request)
     {
+        return $this->attemptLogin($request, portal: false);
+    }
+
+    public function adminLoginForm()
+    {
+        return view('auth.admin-login');
+    }
+
+    /** Internal admin / staff sign-in (operations portal). */
+    public function adminLogin(Request $request)
+    {
+        return $this->attemptLogin($request, portal: true);
+    }
+
+    private function attemptLogin(Request $request, bool $portal)
+    {
         $credentials = $request->validate(['email' => ['required', 'string'], 'password' => ['required', 'string']]);
-        $email = strtolower($credentials['email']) === 'admin' ? 'admin@musiciansworld.com' : strtolower($credentials['email']);
-        $throttleKey = 'login:'.$email.'|'.$request->ip();
+        $email = strtolower(trim($credentials['email']));
+        if ($portal && $email === 'admin') {
+            $email = 'admin@musiciansworld.com';
+        }
+        $throttleKey = ($portal ? 'admin-login:' : 'login:').$email.'|'.$request->ip();
         if (RateLimiter::tooManyAttempts($throttleKey, 6)) {
             return back()->withErrors(['email' => 'Too many login attempts. Try again in '.RateLimiter::availableIn($throttleKey).' seconds.'])->onlyInput('email');
         }
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || !Auth::attempt(['email' => $email, 'password' => $credentials['password'], 'status' => 'active'], $request->boolean('remember'))) {
+
+        $user = filter_var($email, FILTER_VALIDATE_EMAIL) ? User::with('roles')->where('email', $email)->first() : null;
+        if (!$user || !Hash::check($credentials['password'], $user->password)) {
             RateLimiter::hit($throttleKey, 15 * 60);
             return back()->withErrors(['email' => 'The provided credentials are incorrect.'])->onlyInput('email');
         }
+        if ($user->status !== 'active') {
+            RateLimiter::hit($throttleKey, 15 * 60);
+            return back()->withErrors(['email' => 'This account is '.$user->status.'. Contact MusiciansWorld support for help.'])->onlyInput('email');
+        }
+        if ($portal && !$user->isStaffAccount()) {
+            RateLimiter::hit($throttleKey, 15 * 60);
+            return back()->withErrors(['email' => 'This account does not have access to the operations portal. Use the customer sign-in instead.'])->onlyInput('email');
+        }
+        if (!$portal && $user->isStaffAccount()) {
+            return back()->withErrors(['email' => 'This is an internal team account. Please sign in through the Admin Login.'])->onlyInput('email')->with('admin_login_hint', true);
+        }
+
         RateLimiter::clear($throttleKey);
+        Auth::login($user, $request->boolean('remember'));
         $request->session()->regenerate();
-        $fallback = $request->is('admin/*') ? route('admin.dashboard') : route('account.dashboard');
-        return redirect()->intended($fallback);
+        $user->forceFill(['last_login_at' => now(), 'last_login_ip' => $request->ip()])->saveQuietly();
+
+        return redirect()->intended($portal ? route('admin.dashboard') : route('account.dashboard'));
     }
 
     public function logout(Request $request)
     {
+        $wasPortal = $request->is('admin/*') || $request->routeIs('admin.logout');
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-        return redirect('/');
+        return $wasPortal ? redirect()->route('admin.login')->with('success', 'You have been signed out.') : redirect('/');
     }
 
     public function forgotForm()

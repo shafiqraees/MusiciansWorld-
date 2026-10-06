@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\Admin\MembershipController;
+use App\Http\Controllers\Admin\SettingsController;
+use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\FormController;
@@ -63,8 +66,22 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->n
 Route::middleware('auth')->group(function () {
     Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verify'])->middleware('signed')->name('verification.verify');
     Route::post('/email/verification-notification', [AuthController::class, 'resendVerification'])->middleware('throttle:6,1')->name('verification.send');
+    // Customer portal — one page per sidebar module
     Route::get('/account', [AccountController::class, 'dashboard'])->name('account.dashboard');
-    Route::patch('/account/profile', [AccountController::class, 'profile'])->name('account.profile');
+    Route::get('/account/profile', [AccountController::class, 'profile'])->name('account.profile');
+    Route::patch('/account/profile', [AccountController::class, 'updateProfile'])->name('account.profile.update');
+    Route::get('/account/membership', [AccountController::class, 'membership'])->name('account.membership');
+    Route::post('/account/membership/cancel', [AccountController::class, 'cancelMembership'])->name('account.membership.cancel');
+    Route::post('/account/membership/resume', [AccountController::class, 'resumeMembership'])->name('account.membership.resume');
+    Route::get('/account/benefits', [AccountController::class, 'benefits'])->name('account.benefits');
+    Route::get('/account/bookings', [AccountController::class, 'bookings'])->name('account.bookings');
+    Route::post('/account/bookings/{booking}/change-request', [AccountController::class, 'requestBookingChange'])->name('account.bookings.change');
+    Route::get('/account/dj-school', [AccountController::class, 'school'])->name('account.school');
+    Route::get('/account/tickets', [AccountController::class, 'tickets'])->name('account.tickets');
+    Route::get('/account/events', [AccountController::class, 'events'])->name('account.events');
+    Route::get('/account/events/{event}', [AccountController::class, 'eventDetail'])->whereNumber('event')->name('account.events.show');
+    Route::get('/account/payments', [AccountController::class, 'payments'])->name('account.payments');
+    Route::get('/account/payments/{transaction}', [AccountController::class, 'receipt'])->name('account.receipts.show');
     Route::get('/host-an-event', [EventController::class, 'create'])->name('organizer.events.create');
     Route::post('/host-an-event', [EventController::class, 'store'])->name('organizer.events.store');
     Route::get('/account/events/{event}/edit', [EventController::class, 'edit'])->name('organizer.events.edit');
@@ -81,38 +98,80 @@ Route::post('/events/{event}/tickets', [TicketController::class, 'purchase'])->m
 Route::get('/tickets/success', [TicketController::class, 'success'])->name('tickets.success');
 Route::get('/check-in/{ticket}', [TicketController::class, 'checkIn'])->middleware(['auth', 'role:check_in,operations,super_admin'])->name('tickets.check-in');
 
-Route::middleware(['auth', 'role:operations,finance,super_admin'])->prefix('admin')->name('admin.')->group(function () {
+// Internal admin / staff sign-in lives at /admin/login (separate from the customer sign-in at /login).
+Route::get('/admin/login', [AuthController::class, 'adminLoginForm'])->middleware('guest')->name('admin.login');
+Route::post('/admin/login', [AuthController::class, 'adminLogin'])->middleware('guest')->name('admin.login.attempt');
+Route::get('/admin/login.php', fn () => redirect()->route('admin.login'));
+Route::post('/admin/logout', [AuthController::class, 'logout'])->middleware('auth')->name('admin.logout');
+Route::get('/admin/logout.php', fn (Request $request) => app(AuthController::class)->logout($request))->middleware('auth');
+
+Route::middleware(['auth', 'staff'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [AdminController::class, 'dashboard'])->middleware('permission:dashboard.view')->name('dashboard');
     Route::get('/index.php', [AdminController::class, 'dashboard'])->middleware('permission:dashboard.view');
+
+    // Bookings
     Route::get('/bookings', [AdminController::class, 'bookings'])->middleware('permission:bookings.view')->name('bookings');
     Route::get('/bookings.php', [AdminController::class, 'bookings'])->middleware('permission:bookings.view');
-    Route::patch('/bookings/{booking}/payment', [AdminController::class, 'bookingStatus'])->middleware('permission:bookings.manage')->name('bookings.payment');
+    Route::patch('/bookings/{booking}', [AdminController::class, 'updateBooking'])->middleware('permission:bookings.manage')->name('bookings.update');
+    Route::patch('/bookings/{booking}/payment', [AdminController::class, 'updateBooking'])->middleware('permission:bookings.manage')->name('bookings.payment');
+
+    // Events & settlements
     Route::get('/events', [AdminController::class, 'events'])->middleware('permission:events.view')->name('events');
+    Route::put('/events/{event}', [AdminController::class, 'updateEvent'])->middleware('permission:events.approve')->name('events.update');
     Route::patch('/events/{event}/review', [AdminController::class, 'reviewEvent'])->middleware('permission:events.approve')->name('events.review');
     Route::post('/events/{event}/settlement/calculate', [AdminController::class, 'calculateSettlement'])->middleware('permission:settlements.manage')->name('settlements.calculate');
     Route::post('/settlements/{settlement}/transfer', [AdminController::class, 'transferSettlement'])->middleware('permission:settlements.manage')->name('settlements.transfer');
-    Route::get('/settings', [AdminController::class, 'settings'])->middleware('permission:settings.manage')->name('settings');
-    Route::get('/memberships', [AdminController::class, 'settings'])->middleware('permission:memberships.manage')->name('memberships');
-    Route::patch('/settings/{setting}', [AdminController::class, 'updateSetting'])->middleware('permission:settings.manage')->name('settings.update');
-    Route::patch('/membership-plans/{plan}', [AdminController::class, 'updatePlan'])->middleware('permission:memberships.manage')->name('plans.update');
-    Route::patch('/membership-plans/{plan}/benefits/{benefit}', [AdminController::class, 'updateBenefit'])->middleware('permission:memberships.manage')->name('benefits.update');
-    Route::patch('/pricing-rules/{rule}', [AdminController::class, 'updatePricing'])->middleware('permission:settings.manage')->name('pricing.update');
-    Route::post('/availability-holds', [AdminController::class, 'createHold'])->middleware('permission:bookings.manage')->name('holds.create');
-    Route::delete('/availability-holds/{hold}', [AdminController::class, 'deleteHold'])->middleware('permission:bookings.manage')->name('holds.delete');
-    Route::get('/failures', [AdminController::class, 'failures'])->middleware('permission:integrations.manage')->name('failures');
-    Route::post('/failures/{job}/retry', [AdminController::class, 'retryFailure'])->middleware('permission:integrations.manage')->name('failures.retry');
-    Route::get('/reports', [AdminController::class, 'reports'])->middleware('permission:reports.view')->name('reports');
-    Route::get('/audit', [AdminController::class, 'auditLogs'])->middleware('permission:audit.view')->name('audit');
-    Route::get('/members.php', [AdminController::class, 'customers'])->middleware('permission:users.view')->name('customers');
-    Route::patch('/customers/{user}/roles', [AdminController::class, 'updateRoles'])->middleware('permission:roles.manage')->name('customers.roles');
+
+    // Memberships
+    Route::get('/memberships', [MembershipController::class, 'index'])->middleware('permission:memberships.manage')->name('memberships');
+    Route::post('/membership-plans', [MembershipController::class, 'storePlan'])->middleware('permission:memberships.manage')->name('plans.store');
+    Route::patch('/membership-plans/{plan}', [MembershipController::class, 'updatePlan'])->middleware('permission:memberships.manage')->name('plans.update');
+    Route::post('/customer-memberships', [MembershipController::class, 'storeMembership'])->middleware('permission:memberships.manage')->name('memberships.store');
+    Route::patch('/customer-memberships/{membership}', [MembershipController::class, 'updateMembership'])->middleware('permission:memberships.manage')->name('memberships.update');
+
+    // Settings (hub + sections)
+    Route::get('/settings', [SettingsController::class, 'index'])->middleware('permission:settings.manage')->name('settings');
+    Route::get('/settings/platform', [SettingsController::class, 'platform'])->middleware('permission:settings.manage')->name('settings.platform');
+    Route::post('/settings/platform', [SettingsController::class, 'storeSetting'])->middleware('permission:settings.manage')->name('settings.store');
+    Route::patch('/settings/{setting}', [SettingsController::class, 'updateSetting'])->middleware('permission:settings.manage')->name('settings.update');
+    Route::get('/settings/pricing', [SettingsController::class, 'pricing'])->middleware('permission:settings.manage')->name('settings.pricing');
+    Route::patch('/resources/{resource}', [SettingsController::class, 'updateResource'])->middleware('permission:settings.manage')->name('resources.update');
+    Route::post('/pricing-rules', [SettingsController::class, 'storePricing'])->middleware('permission:settings.manage')->name('pricing.store');
+    Route::patch('/pricing-rules/{rule}', [SettingsController::class, 'updatePricing'])->middleware('permission:settings.manage')->name('pricing.update');
+    Route::get('/settings/availability', [SettingsController::class, 'availability'])->middleware('permission:bookings.manage')->name('settings.availability');
+    Route::post('/availability-holds', [SettingsController::class, 'createHold'])->middleware('permission:bookings.manage')->name('holds.create');
+    Route::delete('/availability-holds/{hold}', [SettingsController::class, 'deleteHold'])->middleware('permission:bookings.manage')->name('holds.delete');
+    Route::get('/settings/integrations', [SettingsController::class, 'integrations'])->middleware('permission:settings.manage')->name('settings.integrations');
+
+    // Users: shared listing for all / customers / admins / staff, plus the detail page
+    Route::get('/users', [UserController::class, 'index'])->middleware('permission:users.view')->name('users');
+    Route::get('/customers', fn () => app(UserController::class)->index(request(), 'customers'))->middleware('permission:users.view')->name('customers');
+    Route::get('/admins', fn () => app(UserController::class)->index(request(), 'admins'))->middleware('permission:users.view')->name('admins');
+    Route::get('/staff', fn () => app(UserController::class)->index(request(), 'staff'))->middleware('permission:users.view')->name('staff');
+    Route::get('/members.php', fn () => redirect()->route('admin.customers'));
+    Route::post('/users', [UserController::class, 'store'])->middleware('permission:users.manage')->name('users.store');
+    Route::get('/users/{user}', [UserController::class, 'show'])->middleware('permission:users.view')->name('users.show');
+    Route::patch('/users/{user}', [UserController::class, 'update'])->middleware('permission:users.manage')->name('users.update');
+    Route::patch('/users/{user}/status', [UserController::class, 'updateStatus'])->middleware('permission:users.manage')->name('users.status');
+    Route::patch('/users/{user}/password', [UserController::class, 'updatePassword'])->middleware('permission:users.manage')->name('users.password');
+    Route::patch('/users/{user}/roles', [UserController::class, 'updateRoles'])->middleware('permission:roles.manage')->name('users.roles');
+    Route::patch('/users/{user}/permissions', [UserController::class, 'updatePermissions'])->middleware('permission:roles.manage')->name('users.permissions');
+
+    // Roles
     Route::get('/roles', [AdminController::class, 'roles'])->middleware('permission:roles.manage')->name('roles');
     Route::patch('/roles/{role}/permissions', [AdminController::class, 'updateRolePermissions'])->middleware('permission:roles.manage')->name('roles.permissions');
+
+    // Leads, reporting, exports
     Route::get('/leads.php', [AdminController::class, 'submissions'])->middleware('permission:submissions.view')->name('submissions');
+    Route::get('/reports', [AdminController::class, 'reports'])->middleware('permission:reports.view')->name('reports');
+    Route::get('/transactions', [\App\Http\Controllers\Admin\FinanceController::class, 'transactions'])->middleware('permission:reports.view')->name('transactions');
     Route::get('/export.php', [AdminController::class, 'export'])->middleware('permission:reports.export')->name('export');
+
+    // Hidden from navigation for now, but still reachable for operators who need them.
+    Route::get('/failures', [AdminController::class, 'failures'])->middleware('permission:integrations.manage')->name('failures');
+    Route::post('/failures/{job}/retry', [AdminController::class, 'retryFailure'])->middleware('permission:integrations.manage')->name('failures.retry');
+    Route::get('/audit', [AdminController::class, 'auditLogs'])->middleware('permission:audit.view')->name('audit');
 });
-Route::get('/admin/login.php', [AuthController::class, 'loginForm'])->middleware('guest');
-Route::post('/admin/login.php', [AuthController::class, 'login'])->middleware('guest');
-Route::get('/admin/logout.php', fn (Request $request) => app(AuthController::class)->logout($request))->middleware('auth');
 
 foreach (['availability' => 'availability', 'bookings' => 'bookings'] as $path => $name) {
     Route::get("/api/$path", [BookingController::class, $name === 'availability' ? 'availability' : 'show']);

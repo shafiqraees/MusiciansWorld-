@@ -30,7 +30,7 @@ function page_start(string $title, string $desc = ''): void
     $GLOBALS['page_desc'] = $desc;
     $adminShell = request()->is('admin', 'admin/*')
         && auth()->check()
-        && auth()->user()->hasAnyRole(['operations', 'finance', 'super_admin']);
+        && auth()->user()->isStaffAccount();
     $GLOBALS['admin_shell'] = $adminShell;
     echo View::make($adminShell ? 'layouts.admin-header' : 'layouts.header', $GLOBALS)->render();
 }
@@ -39,6 +39,45 @@ function page_end(): void
 {
     echo View::make(!empty($GLOBALS['admin_shell']) ? 'layouts.admin-footer' : 'layouts.footer', $GLOBALS)->render();
     $GLOBALS['admin_shell'] = false;
+}
+
+/**
+ * Map a domain status string to an admin badge variant (success / warn / danger / info / neutral).
+ */
+function a_status(?string $status): string
+{
+    return match ((string) $status) {
+        'active', 'paid', 'confirmed', 'published', 'approved', 'completed', 'succeeded', 'valid', 'checked_in', 'connected', 'healthy', 'synced', 'ready', 'transferred', 'yes', 'on', 'true' => 'success',
+        'pending', 'pending_payment', 'trialing', 'grace', 'past_due', 'submitted', 'changes_requested', 'admin_hold', 'pending_closeout', 'hold', 'new', 'attention needed', 'not configured', 'received', 'maintenance' => 'warn',
+        'failed', 'cancelled', 'expired', 'refunded', 'rejected', 'suspended', 'inactive', 'void', 'not_eligible', 'no', 'off', 'false' => 'danger',
+        'draft', 'closeout', 'one_time', 'archived' => 'neutral',
+        default => 'info',
+    };
+}
+
+function a_label(?string $value): string
+{
+    return ucfirst(str_replace('_', ' ', (string) $value));
+}
+
+function a_money(int|float|null $cents): string
+{
+    $cents = (int) $cents;
+
+    return ($cents < 0 ? '−$' : '$').number_format(abs($cents) / 100, 2);
+}
+
+/** Status pill for the customer portal, reusing the admin status vocabulary. */
+function acct_badge(?string $status, ?string $label = null): string
+{
+    $tone = match (a_status($status)) {
+        'success' => 'is-ok',
+        'warn' => 'is-warn',
+        'danger' => 'is-bad',
+        default => '',
+    };
+
+    return '<span class="acct-status '.$tone.'">'.e($label ?? a_label($status)).'</span>';
 }
 
 function cta(string $href, string $label, bool $ghost = false): string

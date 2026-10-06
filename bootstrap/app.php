@@ -16,7 +16,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => \App\Http\Middleware\EnsureRole::class,
             'permission' => \App\Http\Middleware\EnsurePermission::class,
+            'staff' => \App\Http\Middleware\EnsureStaff::class,
         ]);
+        $middleware->redirectGuestsTo(fn (Request $request) => $request->is('admin', 'admin/*') ? route('admin.login') : route('login'));
         $middleware->validateCsrfTokens(except: ['api/*']);
         $middleware->append(\App\Http\Middleware\SetContentLength::class);
     })

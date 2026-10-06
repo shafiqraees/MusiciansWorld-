@@ -28,7 +28,7 @@ $logo = url($MEDIA["logo"]);
   <link rel="stylesheet" href="<?= e(url("assets/css/app.css")) ?>?v=20260909e" />
   <link rel="stylesheet" href="<?= e(url("assets/css/theme.css")) ?>?v=20260909e" />
   <link rel="stylesheet" href="<?= e(url("assets/css/fix.css")) ?>?v=20260909e" />
-  <link rel="stylesheet" href="<?= e(url("assets/css/phase2.css")) ?>?v=20260916a" />
+  <link rel="stylesheet" href="<?= e(url("assets/css/phase2.css")) ?>?v=20261007h" />
   <?php if (!empty($GLOBALS["page_styles"])): foreach ($GLOBALS["page_styles"] as $href): ?>
   <link rel="stylesheet" href="<?= e(url($href)) ?>?v=20260926a" />
   <?php endforeach; endif; ?>
@@ -49,6 +49,11 @@ $logo = url($MEDIA["logo"]);
         <?php endforeach; ?>
       </nav>
       <div class="ml-auto flex items-center gap-2 lg:ml-0">
+        <?php if (auth()->check()): ?>
+          <a href="<?= e(route('account.dashboard')) ?>" class="nav-link hidden text-[12px] tracking-[0.12em] uppercase lg:inline <?= path_active('/account') ? 'is-active text-text' : '' ?>">Account</a>
+        <?php else: ?>
+          <a href="<?= e(route('login')) ?>" class="nav-link hidden text-[12px] tracking-[0.12em] uppercase lg:inline">Sign in</a>
+        <?php endif; ?>
         <a href="<?= e(url("/book")) ?>" class="nav-cta btn btn-mark min-h-11 px-4 text-[11px] lg:min-h-[50px] lg:px-6 lg:text-[12px]">Book a space</a>
         <button type="button" id="menu-open" class="grid h-11 w-11 place-items-center border border-line lg:hidden" aria-expanded="false" aria-controls="mobile-sidebar" aria-label="Open menu">
           <span class="flex flex-col gap-1.5">
@@ -75,6 +80,11 @@ $logo = url($MEDIA["logo"]);
       ?>
         <a href="<?= e(url($href)) ?>" class="block border-b border-line py-4 text-sm tracking-[0.16em] uppercase <?= $active ? "text-mark" : "text-text" ?>"><?= e($label) ?></a>
       <?php endforeach; ?>
+        <?php if (auth()->check()): ?>
+          <a href="<?= e(route('account.dashboard')) ?>" class="block border-b border-line py-4 text-sm tracking-[0.16em] uppercase <?= path_active('/account') ? 'text-mark' : 'text-text' ?>">My account</a>
+        <?php else: ?>
+          <a href="<?= e(route('login')) ?>" class="block border-b border-line py-4 text-sm tracking-[0.16em] uppercase text-text">Sign in</a>
+        <?php endif; ?>
     </nav>
     <div class="border-t border-line p-5">
       <a href="<?= e(url("/book")) ?>" class="btn btn-mark w-full">Book a space</a>

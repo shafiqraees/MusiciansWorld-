@@ -56,6 +56,6 @@ class ConnectController extends Controller
                 report($exception);
             }
         }
-        return redirect()->route('account.dashboard')->with('success', 'Stripe organizer onboarding status refreshed.');
+        return redirect()->route('account.events')->with('success', 'Stripe organizer onboarding status refreshed.');
     }
 }

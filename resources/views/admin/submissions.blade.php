@@ -18,26 +18,26 @@ $humanize = static function (string $key) use ($labels): string {
 };
 ?>
 <section class="section"><div class="wrap">
-  <div class="admin-page-head">
+  <div class="a-page-head">
     <div>
-      <p class="kicker">Customer requests</p>
+      <p class="a-kicker">Customer requests</p>
       <h2>Leads & submissions</h2>
       <p>DJ School inquiries and SoundTunnel applications, with every answer saved from the form.</p>
     </div>
-    <a class="btn btn-mark" href="{{ route('admin.export', ['type' => 'leads']) }}">Export CSV</a>
+    <div class="a-page-actions"><a class="a-btn ghost" href="{{ route('admin.export', ['type' => 'leads']) }}"><svg><use href="#ai-download"></use></svg>Export CSV</a></div>
   </div>
 
-  <div class="admin-filters">
-    <a class="{{ $activeType === '' ? 'is-active' : '' }}" href="{{ route('admin.submissions') }}">All</a>
+  <div class="a-chips">
+    <a class="a-chip {{ $activeType === '' ? 'is-active' : '' }}" href="{{ route('admin.submissions') }}">All</a>
     @foreach($types as $value => $label)
-      <a class="{{ $activeType === $value ? 'is-active' : '' }}" href="{{ route('admin.submissions', ['type' => $value]) }}">{{ $label }}</a>
+      <a class="a-chip {{ $activeType === $value ? 'is-active' : '' }}" href="{{ route('admin.submissions', ['type' => $value]) }}">{{ $label }}</a>
     @endforeach
   </div>
 
   @forelse($submissions as $submission)
     <details class="admin-submission">
       <summary>
-        <span class="admin-status">{{ $types[$submission->type] ?? ucwords(str_replace('_', ' ', $submission->type)) }}</span>
+        <span><span class="a-badge info plain">{{ $types[$submission->type] ?? ucwords(str_replace('_', ' ', $submission->type)) }}</span> <x-admin.badge :status="$submission->status" /></span>
         <span>
           <strong>{{ $submission->name }}</strong>
           <small>{{ $submission->email }}{{ $submission->phone ? ' · '.$submission->phone : '' }}</small>
@@ -57,9 +57,9 @@ $humanize = static function (string $key) use ($labels): string {
       </dl>
     </details>
   @empty
-    <p class="admin-panel" style="padding:22px">No submissions in this view yet.</p>
+    <div class="a-card"><div class="a-empty"><strong>No submissions in this view yet</strong>New leads will appear here as forms are submitted.</div></div>
   @endforelse
 
-  <div class="mt-6">{{ $submissions->links() }}</div>
+  {{ $submissions->links('admin.partials.pagination') }}
 </div></section>
 <?php page_end(); ?>

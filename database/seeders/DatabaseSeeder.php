@@ -91,7 +91,7 @@ class DatabaseSeeder extends Seeder
 
         $admin = User::updateOrCreate(
             ['email' => 'admin@musiciansworld.com'],
-            ['name' => 'Administrator', 'password' => Hash::make('Admin1234'), 'email_verified_at' => now()]
+            ['name' => 'Administrator', 'password' => Hash::make('Admin1234'), 'email_verified_at' => now(), 'account_type' => User::TYPE_ADMIN, 'job_title' => 'Platform Administrator']
         );
         $admin->roles()->syncWithoutDetaching([Role::where('name', 'super_admin')->value('id')]);
 
