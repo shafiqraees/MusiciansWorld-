@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Resource;
 use App\Services\BookingService;
+use App\Services\CustomerAccountService;
 use App\Services\StripeService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
@@ -34,6 +35,7 @@ class BookingController extends Controller
                 $busy = $bookings->busyRanges($resource, $date);
                 $days[$date] = day_status($busy, $date, phoenix_date_iso());
             }
+
             return response()->json(['resource' => 'studio-a', 'year' => (int) $data['year'], 'month' => (int) $data['month'], 'days' => $days]);
         }
 
@@ -53,6 +55,7 @@ class BookingController extends Controller
                 'alternatives' => $available ? [] : array_map(fn ($time) => ['start' => $time, 'label' => format_clock($time)], nearby_times($busy, (int) $data['start'], $duration)),
             ];
         }
+
         return response()->json([
             'resource' => 'studio-a', 'date' => $date, 'duration' => $duration,
             'price' => intdiv($bookings->price($resource, $duration), 100),
@@ -66,10 +69,11 @@ class BookingController extends Controller
     {
         $request->validate(['id' => ['required', 'string']]);
         $booking = Booking::where('reference', $request->query('id'))->with('resource')->firstOrFail();
+
         return response()->json($this->legacyPayload($booking));
     }
 
-    public function store(Request $request, BookingService $bookings, StripeService $stripe)
+    public function store(Request $request, BookingService $bookings, StripeService $stripe, CustomerAccountService $accounts)
     {
         $data = $request->validate([
             'resourceId' => ['required', 'in:studio-a'],
@@ -84,13 +88,25 @@ class BookingController extends Controller
         ]);
 
         try {
-            $booking = $bookings->holdStudio($data);
-            if (array_key_exists('price', $data) && $data['price'] !== null && $data['price'] * 100 !== $booking->total_cents && $data['price'] !== intdiv($booking->total_cents, 100)) {
+            $user = $accounts->resolve($request->user(), [
+                'name' => $data['name'],
+                'email' => $data['email'],
+                'phone' => $data['phone'] ?? null,
+            ]);
+            $data['email'] = $user->email;
+            if ($request->user()) {
+                $data['name'] = $user->name;
+                $data['phone'] = $user->phone ?? ($data['phone'] ?? null);
+            }
+
+            $booking = $bookings->holdStudio($data, $user);
+            if (array_key_exists('price', $data) && $data['price'] !== null && $booking->total_cents !== $data['price'] * 100 && $data['price'] !== intdiv($booking->total_cents, 100)) {
                 $booking->update(['status' => 'cancelled', 'payment_status' => 'cancelled']);
                 throw ValidationException::withMessages(['price' => 'Price mismatch']);
             }
             $session = $stripe->bookingCheckout($booking->load('resource'));
             $booking->update(['stripe_checkout_session_id' => $session->id]);
+
             return response()->json([
                 'id' => $booking->reference,
                 'date' => $data['date'],
@@ -109,6 +125,7 @@ class BookingController extends Controller
                 $booking->update(['status' => 'cancelled', 'payment_status' => 'failed']);
             }
             report($exception);
+
             return response()->json(['error' => 'Could not start payment. Please try again shortly.'], 502);
         }
     }
@@ -116,6 +133,7 @@ class BookingController extends Controller
     private function legacyPayload(Booking $booking): array
     {
         $local = $booking->starts_at->setTimezone($booking->resource->timezone);
+
         return [
             'id' => $booking->reference,
             'resourceId' => $booking->resource->slug,

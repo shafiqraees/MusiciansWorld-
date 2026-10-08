@@ -11,9 +11,15 @@ use Throwable;
 
 class BookingPageController extends Controller
 {
+    public function index()
+    {
+        return view('pages.book');
+    }
+
     public function confirm(string $id)
     {
         $booking = Booking::where('reference', $id)->with('resource')->firstOrFail();
+
         return view('book.confirm', compact('booking'));
     }
 
@@ -36,6 +42,7 @@ class BookingPageController extends Controller
                 report($exception);
             }
         }
+
         return view('book.success', compact('booking', 'verified'));
     }
 
@@ -45,6 +52,7 @@ class BookingPageController extends Controller
         if ($booking && $booking->payment_status === 'pending') {
             $booking->update(['status' => 'cancelled', 'payment_status' => 'cancelled', 'hold_expires_at' => null]);
         }
+
         return view('book.cancelled', compact('booking'));
     }
 }

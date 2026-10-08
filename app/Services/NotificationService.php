@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\IntegrationJob;
+use App\Models\User;
 use Illuminate\Support\Facades\Mail;
 use Throwable;
 
@@ -20,6 +21,41 @@ class NotificationService
         app()->terminating(fn () => $this->admin($subject, $submission));
     }
 
+    public function customerAccountAfterResponse(User $user, string $temporaryPassword): void
+    {
+        app()->terminating(fn () => $this->customerAccount($user, $temporaryPassword));
+    }
+
+    public function customerAccount(User $user, string $temporaryPassword, bool $recordFailure = true): bool
+    {
+        $loginUrl = route('login');
+
+        try {
+            $this->throttle();
+            Mail::send('emails.customer-account-created', compact('user', 'temporaryPassword', 'loginUrl'), function ($message) use ($user) {
+                $message->to($user->email, $user->name)->subject('Your MusiciansWorld customer account');
+            });
+            $this->markSent();
+
+            return true;
+        } catch (Throwable $exception) {
+            report($exception);
+            if ($recordFailure) {
+                IntegrationJob::create([
+                    'integration' => 'email',
+                    'action' => 'customer_account_created',
+                    'status' => 'failed',
+                    'attempts' => 1,
+                    'next_attempt_at' => now()->addMinutes(10),
+                    'last_error' => $exception->getMessage(),
+                    'payload' => ['email' => $user->email, 'name' => $user->name],
+                ]);
+            }
+
+            return false;
+        }
+    }
+
     public function welcome(string $email, string $name, string $type, string $detail = '', bool $recordFailure = true): bool
     {
         $isDj = $type === 'dj';
@@ -31,20 +67,22 @@ class NotificationService
                 $message->to($email, $name)->subject($subject);
             });
             $this->markSent();
+
             return true;
         } catch (Throwable $exception) {
             report($exception);
             if ($recordFailure) {
                 IntegrationJob::create([
-                'integration' => 'email',
-                'action' => $type.'_welcome',
-                'status' => 'failed',
-                'attempts' => 1,
-                'next_attempt_at' => now()->addMinutes(10),
-                'last_error' => $exception->getMessage(),
-                'payload' => ['email' => $email, 'name' => $name, 'detail' => $detail],
+                    'integration' => 'email',
+                    'action' => $type.'_welcome',
+                    'status' => 'failed',
+                    'attempts' => 1,
+                    'next_attempt_at' => now()->addMinutes(10),
+                    'last_error' => $exception->getMessage(),
+                    'payload' => ['email' => $email, 'name' => $name, 'detail' => $detail],
                 ]);
             }
+
             return false;
         }
     }
@@ -80,9 +118,11 @@ class NotificationService
                 $message->to(config('mail.from.address'))->replyTo($submission['email'], $submission['name'])->subject($subject);
             });
             $this->markSent();
+
             return true;
         } catch (Throwable $exception) {
             report($exception);
+
             return false;
         }
     }

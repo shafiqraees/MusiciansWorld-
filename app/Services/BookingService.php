@@ -5,12 +5,12 @@ namespace App\Services;
 use App\Models\AvailabilityBlock;
 use App\Models\Booking;
 use App\Models\Event;
-use App\Models\PricingRule;
 use App\Models\PlatformSetting;
+use App\Models\PricingRule;
 use App\Models\Resource;
+use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use RuntimeException;
 
 class BookingService
@@ -49,12 +49,14 @@ class BookingService
             ->map(function ($event) {
                 $event->starts_at = $event->starts_at->copy()->subMinutes($event->setup_minutes);
                 $event->ends_at = $event->ends_at->copy()->addMinutes($event->teardown_minutes);
+
                 return $event;
             });
 
         return $bookings->concat($blocks)->concat($events)->map(function ($item) use ($dayStart, $timezone) {
             $start = CarbonImmutable::parse($item->starts_at)->setTimezone($timezone);
             $end = CarbonImmutable::parse($item->ends_at)->setTimezone($timezone);
+
             return [
                 'start' => $dayStart->diffInMinutes($start, false),
                 'end' => $dayStart->diffInMinutes($end, false),
@@ -72,15 +74,16 @@ class BookingService
             ->where(fn ($q) => $q->whereNull('effective_from')->orWhere('effective_from', '<=', now()))
             ->where(fn ($q) => $q->whereNull('effective_until')->orWhere('effective_until', '>', now()))
             ->first();
-        if (!$rule) {
+        if (! $rule) {
             throw new RuntimeException('Invalid duration');
         }
+
         return $rule->price_cents;
     }
 
-    public function holdStudio(array $data): Booking
+    public function holdStudio(array $data, User $user): Booking
     {
-        return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($data, $user) {
             $resource = Resource::where('slug', 'studio-a')->lockForUpdate()->firstOrFail();
             $date = CarbonImmutable::parse($data['date'], $resource->timezone)->startOfDay();
             $start = $date->addMinutes((int) $data['start']);
@@ -104,9 +107,10 @@ class BookingService
             }
 
             $price = $this->price($resource, (int) $data['durationHours']);
+
             return Booking::create([
                 'reference' => 'MW-'.strtoupper(base_convert((string) (int) (microtime(true) * 1000), 10, 36)),
-                'user_id' => auth()->id(),
+                'user_id' => $user->id,
                 'resource_id' => $resource->id,
                 'service_type' => 'studio_booking',
                 'starts_at' => $start->utc(),

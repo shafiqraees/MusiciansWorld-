@@ -1,8 +1,37 @@
 (function () {
-  const base = (window.MW && window.MW.base) || "";
-  function api(path) {
-    return base + path;
+  const mw = window.MW || {};
+
+  function route(name) {
+    return (mw.routes && mw.routes[name]) || "";
   }
+
+  function requestHeaders() {
+    return {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-CSRF-TOKEN": mw.csrfToken || "",
+    };
+  }
+
+  function prefillCustomer(form) {
+    if (!mw.customer) return;
+
+    const values = {
+      name: mw.customer.name,
+      studentName: mw.customer.name,
+      email: mw.customer.email,
+      phone: mw.customer.phone,
+      city: mw.customer.city,
+      state: mw.customer.state,
+      zip: mw.customer.zip,
+    };
+
+    Object.entries(values).forEach(([name, value]) => {
+      const field = form.elements.namedItem(name);
+      if (field && !field.value && value) field.value = value;
+    });
+  }
+
   function showMsg(form, text, state) {
     const el = form.querySelector(".form-msg");
     if (!el) return;
@@ -26,6 +55,8 @@
   }
 
   document.querySelectorAll("[data-form]").forEach((form) => {
+    prefillCustomer(form);
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       if (form.matches("[data-soundtunnel-form], [data-dj-form]") && form.dataset.readyToSubmit !== "true") return;
@@ -46,9 +77,9 @@
       try {
         if (kind === "membership" && body.plan === "founding") {
           showMsg(form, "Redirecting to secure checkout…");
-          const res = await fetch(api("/api/stripe-checkout.php"), {
+          const res = await fetch(route("membership-checkout"), {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: requestHeaders(),
             body: JSON.stringify(body),
           });
           const data = await res.json();
@@ -60,25 +91,25 @@
           return;
         }
 
-        let url = api("/api/contact.php");
+        let url = route("contact");
         let okText = "Received. The desk will get back to you.";
         if (kind === "soundtunnel") {
-          url = api("/api/soundtunnel-request.php");
+          url = route("soundtunnel");
           okText = "Application received. Check your email for the next registration step.";
         } else if (kind === "dj-school") {
-          url = api("/api/dj-school-request.php");
+          url = route("dj-school");
           okText = "Request received. Check your email to complete DJ Registration.";
         } else if (kind === "enroll") {
-          url = api("/api/enroll.php");
+          url = route("enroll");
         } else if (kind === "membership") {
-          url = api("/api/membership.php");
+          url = route("membership");
         } else if (kind === "dj-lesson") {
-          url = api("/api/dj-lesson-inquiry.php");
+          url = route("dj-lesson");
           okText = "Inquiry received. The desk will follow up to confirm placement.";
         }
         const res = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: requestHeaders(),
           body: JSON.stringify(body),
         });
         const data = await res.json();

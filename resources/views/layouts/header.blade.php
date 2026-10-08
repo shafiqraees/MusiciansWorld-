@@ -12,6 +12,9 @@ $nav_links = [
     ["/contact", "Contact"],
 ];
 $logo = url($MEDIA["logo"]);
+$headerAction = auth()->check()
+    ? [auth()->user()->isStaffAccount() ? route('admin.dashboard') : route('account.dashboard'), 'Dashboard']
+    : [route('login'), 'Login'];
 ?>
 <!DOCTYPE html>
 <html lang="en" class="h-full">
@@ -32,7 +35,30 @@ $logo = url($MEDIA["logo"]);
   <?php if (!empty($GLOBALS["page_styles"])): foreach ($GLOBALS["page_styles"] as $href): ?>
   <link rel="stylesheet" href="<?= e(url($href)) ?>?v=20260926a" />
   <?php endforeach; endif; ?>
-  <script>window.MW = { base: <?= json_encode(site_base()) ?>, locationLabel: <?= json_encode($SITE["locationLabel"]) ?> };</script>
+  <script>
+    window.MW = {
+      base: <?= json_encode(site_base()) ?>,
+      locationLabel: <?= json_encode($SITE["locationLabel"]) ?>,
+      csrfToken: <?= json_encode(csrf_token()) ?>,
+      customer: <?= json_encode(auth()->check() ? [
+          'name' => auth()->user()->name,
+          'email' => auth()->user()->email,
+          'phone' => auth()->user()->phone,
+          'city' => auth()->user()->city,
+          'state' => auth()->user()->state,
+          'zip' => auth()->user()->postal_code,
+      ] : null) ?>,
+      routes: <?= json_encode([
+          'contact' => route('forms.contact'),
+          'soundtunnel' => route('forms.soundtunnel'),
+          'dj-school' => route('forms.dj-school'),
+          'enroll' => route('forms.enroll'),
+          'membership' => route('forms.membership'),
+          'membership-checkout' => route('membership.checkout'),
+          'dj-lesson' => route('forms.dj-lesson'),
+      ]) ?>
+    };
+  </script>
 </head>
 <body class="flex min-h-full flex-col bg-bg font-sans text-text antialiased">
   <header id="site-header" class="sticky top-0 z-50 bg-transparent transition-all duration-300">
@@ -49,11 +75,7 @@ $logo = url($MEDIA["logo"]);
         <?php endforeach; ?>
       </nav>
       <div class="ml-auto flex items-center gap-2 lg:ml-0">
-        <?php if (auth()->check()): ?>
-          <a href="<?= e(route('account.dashboard')) ?>" class="nav-link hidden text-[12px] tracking-[0.12em] uppercase lg:inline <?= path_active('/account') ? 'is-active text-text' : '' ?>">Account</a>
-        <?php else: ?>
-          <a href="<?= e(route('login')) ?>" class="nav-link hidden text-[12px] tracking-[0.12em] uppercase lg:inline">Sign in</a>
-        <?php endif; ?>
+        <a href="<?= e($headerAction[0]) ?>" class="btn btn-ghost min-h-11 px-3 text-[11px] tracking-[0.12em] uppercase lg:min-h-[50px] lg:px-5 lg:text-[12px]"><?= e($headerAction[1]) ?></a>
         <a href="<?= e(url("/book")) ?>" class="nav-cta btn btn-mark min-h-11 px-4 text-[11px] lg:min-h-[50px] lg:px-6 lg:text-[12px]">Book a space</a>
         <button type="button" id="menu-open" class="grid h-11 w-11 place-items-center border border-line lg:hidden" aria-expanded="false" aria-controls="mobile-sidebar" aria-label="Open menu">
           <span class="flex flex-col gap-1.5">
@@ -80,11 +102,7 @@ $logo = url($MEDIA["logo"]);
       ?>
         <a href="<?= e(url($href)) ?>" class="block border-b border-line py-4 text-sm tracking-[0.16em] uppercase <?= $active ? "text-mark" : "text-text" ?>"><?= e($label) ?></a>
       <?php endforeach; ?>
-        <?php if (auth()->check()): ?>
-          <a href="<?= e(route('account.dashboard')) ?>" class="block border-b border-line py-4 text-sm tracking-[0.16em] uppercase <?= path_active('/account') ? 'text-mark' : 'text-text' ?>">My account</a>
-        <?php else: ?>
-          <a href="<?= e(route('login')) ?>" class="block border-b border-line py-4 text-sm tracking-[0.16em] uppercase text-text">Sign in</a>
-        <?php endif; ?>
+        <a href="<?= e($headerAction[0]) ?>" class="block border-b border-line py-4 text-sm tracking-[0.16em] uppercase <?= auth()->check() && path_active('/account') ? 'text-mark' : 'text-text' ?>"><?= e($headerAction[1]) ?></a>
     </nav>
     <div class="border-t border-line p-5">
       <a href="<?= e(url("/book")) ?>" class="btn btn-mark w-full">Book a space</a>

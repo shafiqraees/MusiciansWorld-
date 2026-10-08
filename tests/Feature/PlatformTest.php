@@ -13,6 +13,7 @@ use App\Services\TicketService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class PlatformTest extends TestCase
@@ -23,6 +24,7 @@ class PlatformTest extends TestCase
     {
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
+        Mail::fake();
     }
 
     public function test_preserved_public_pages_render(): void
@@ -48,13 +50,13 @@ class PlatformTest extends TestCase
         $this->assertSame('community', $user->activeMembership()->plan->slug);
     }
 
-    public function test_legacy_availability_contract_is_preserved(): void
+    public function test_laravel_booking_availability_routes_return_calendar_data(): void
     {
-        $this->getJson('/api/availability.php?resource=studio-a&year=2026&month=10')
+        $this->getJson(route('booking.availability', ['resource' => 'studio-a', 'year' => 2026, 'month' => 10]))
             ->assertOk()->assertJsonPath('resource', 'studio-a')->assertJsonPath('year', 2026)->assertJsonStructure(['days']);
-        $this->getJson('/api/availability.php?resource=studio-a&date=2026-10-05&duration=2&start=600')
+        $this->getJson(route('booking.availability', ['resource' => 'studio-a', 'date' => '2026-10-05', 'duration' => 2, 'start' => 600]))
             ->assertOk()->assertJsonPath('price', 80)->assertJsonStructure(['dayStatus', 'busy', 'slots', 'requested']);
-        $this->getJson('/api/membership.php')
+        $this->getJson(route('membership.status'))
             ->assertOk()->assertJsonStructure(['max', 'taken', 'remaining'])->assertJsonPath('max', 50);
     }
 
@@ -122,7 +124,7 @@ class PlatformTest extends TestCase
 
     public function test_soundtunnel_multistep_application_is_saved(): void
     {
-        $response = $this->postJson('/api/soundtunnel-request.php', [
+        $response = $this->postJson(route('forms.soundtunnel'), [
             'name' => 'Alex Promoter',
             'email' => 'alex@example.com',
             'phone' => '602-555-0199',
@@ -151,11 +153,12 @@ class PlatformTest extends TestCase
         $this->assertSame('soundtunnel_rental', $submission->type);
         $this->assertSame(['Sound engineer', 'Lighting upgrade'], $submission->data['services']);
         $this->assertSame(180, $submission->data['headcount']);
+        $this->assertSame(User::where('email', 'alex@example.com')->value('id'), $submission->user_id);
     }
 
     public function test_dj_school_inquiry_stores_conditional_answers_and_notifies(): void
     {
-        $minor = $this->postJson('/api/dj-school-request.php', [
+        $minor = $this->postJson(route('forms.dj-school'), [
             'name' => 'Casey Minor',
             'email' => 'casey.minor@example.com',
             'phone' => '602-555-0144',
@@ -187,8 +190,9 @@ class PlatformTest extends TestCase
         $this->assertSame('Pat Minor', $submission->data['parentName']);
         $this->assertSame(['Beatmatching & tempo control', 'Mixing & transitions'], $submission->data['skills']);
         $this->assertDatabaseHas('program_registrations', ['email' => 'casey.minor@example.com', 'status' => 'received']);
+        $this->assertSame(User::where('email', 'casey.minor@example.com')->value('id'), $submission->user_id);
 
-        $this->postJson('/api/dj-school-request.php', [
+        $this->postJson(route('forms.dj-school'), [
             'name' => 'Adult Student',
             'email' => 'adult.student@example.com',
             'phone' => '602-555-0166',
@@ -213,7 +217,7 @@ class PlatformTest extends TestCase
         $this->assertSame('No', $adult->data['hasEquipment']);
         $this->assertDatabaseMissing('program_registrations', ['email' => 'adult.student@example.com']);
 
-        $this->postJson('/api/dj-school-request.php', [
+        $this->postJson(route('forms.dj-school'), [
             'name' => 'Missing Parent',
             'email' => 'missing.parent@example.com',
             'phone' => '602-555-0170',
@@ -231,6 +235,6 @@ class PlatformTest extends TestCase
             'goals' => 'Learn the basics with a parent nearby.',
             'referral' => 'Family/Friends',
             'acknowledgment' => '1',
-        ])->assertStatus(400);
+        ])->assertUnprocessable();
     }
 }

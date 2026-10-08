@@ -1,8 +1,5 @@
 (function () {
-  const base = (window.MW && window.MW.base) || "";
-  function api(path) {
-    return base + path;
-  }
+  const mw = window.MW || {};
 
   function phoenixToday() {
     return new Intl.DateTimeFormat("en-CA", {
@@ -24,6 +21,9 @@
 
   const root = document.getElementById("booking-root");
   if (!root) return;
+  const availabilityUrl = root.dataset.availabilityUrl;
+  const bookingUrl = root.dataset.bookingUrl;
+  const customer = mw.customer || {};
 
   const DURATIONS = [2, 3, 4, 6, 8];
   const today = phoenixToday();
@@ -45,9 +45,9 @@
     unavailable: false,
     alts: [],
     step: "pick",
-    name: "",
-    email: "",
-    phone: "",
+    name: customer.name || "",
+    email: customer.email || "",
+    phone: customer.phone || "",
     notes: "",
     error: "",
     busy: false,
@@ -62,7 +62,8 @@
   }
 
   async function loadMonth() {
-    const res = await fetch(api("/api/availability.php?resource=studio-a&year=" + state.y + "&month=" + state.m));
+    const query = new URLSearchParams({ resource: "studio-a", year: String(state.y), month: String(state.m) });
+    const res = await fetch(availabilityUrl + "?" + query.toString(), { headers: { Accept: "application/json" } });
     const data = await res.json();
     state.days = data.days || {};
     render();
@@ -71,7 +72,7 @@
   async function loadDay() {
     const q = new URLSearchParams({ resource: "studio-a", date: state.date, duration: String(state.duration) });
     if (state.start != null) q.set("start", String(state.start));
-    const res = await fetch(api("/api/availability.php?" + q.toString()));
+    const res = await fetch(availabilityUrl + "?" + q.toString(), { headers: { Accept: "application/json" } });
     const data = await res.json();
     state.slots = data.slots || [];
     state.price = data.price;
@@ -114,9 +115,13 @@
     state.busy = true;
     state.error = "";
     render();
-    const res = await fetch(api("/api/bookings.php"), {
+    const res = await fetch(bookingUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "X-CSRF-TOKEN": mw.csrfToken || "",
+      },
       body: JSON.stringify({
         resourceId: "studio-a",
         date: state.date,
@@ -141,7 +146,7 @@
       window.location.href = data.url;
       return;
     }
-    window.location.href = api("/book/confirm/" + encodeURIComponent(data.id));
+    window.location.href = (mw.base || "") + "/book/confirm/" + encodeURIComponent(data.id);
   }
 
   function dayClass(iso, st, selected) {

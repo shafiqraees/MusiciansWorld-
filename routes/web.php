@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\Admin\FinanceController;
 use App\Http\Controllers\Admin\MembershipController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UserController;
@@ -13,7 +14,6 @@ use App\Http\Controllers\BookingPageController;
 use App\Http\Controllers\ConnectController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\TicketController;
-use App\Models\MembershipPlan;
 use App\Services\StripeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -22,7 +22,6 @@ $pages = [
     '/' => 'pages.index',
     '/spaces' => 'pages.spaces',
     '/spaces/studio-a' => 'pages.spaces.studio-a',
-    '/book' => 'pages.book',
     '/book/dj-lesson' => 'pages.book.dj-lesson',
     '/soundtunnel' => 'pages.soundtunnel',
     '/dj-school' => 'pages.dj-school',
@@ -47,6 +46,9 @@ foreach ([
     Route::view($path, $view);
 }
 
+Route::get('/book', [BookingPageController::class, 'index'])->name('booking.create');
+Route::get('/book/availability', [BookingController::class, 'availability'])->name('booking.availability');
+Route::post('/bookings', [BookingController::class, 'store'])->name('booking.store');
 Route::get('/book/confirm/{id}', [BookingPageController::class, 'confirm'])->name('booking.confirm');
 Route::get('/book/success', [BookingPageController::class, 'success'])->name('booking.success');
 Route::get('/book/cancelled', [BookingPageController::class, 'cancelled'])->name('booking.cancelled');
@@ -164,7 +166,7 @@ Route::middleware(['auth', 'staff'])->prefix('admin')->name('admin.')->group(fun
     // Leads, reporting, exports
     Route::get('/leads.php', [AdminController::class, 'submissions'])->middleware('permission:submissions.view')->name('submissions');
     Route::get('/reports', [AdminController::class, 'reports'])->middleware('permission:reports.view')->name('reports');
-    Route::get('/transactions', [\App\Http\Controllers\Admin\FinanceController::class, 'transactions'])->middleware('permission:reports.view')->name('transactions');
+    Route::get('/transactions', [FinanceController::class, 'transactions'])->middleware('permission:reports.view')->name('transactions');
     Route::get('/export.php', [AdminController::class, 'export'])->middleware('permission:reports.export')->name('export');
 
     // Hidden from navigation for now, but still reachable for operators who need them.
@@ -173,23 +175,19 @@ Route::middleware(['auth', 'staff'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/audit', [AdminController::class, 'auditLogs'])->middleware('permission:audit.view')->name('audit');
 });
 
-foreach (['availability' => 'availability', 'bookings' => 'bookings'] as $path => $name) {
-    Route::get("/api/$path", [BookingController::class, $name === 'availability' ? 'availability' : 'show']);
-    Route::get("/api/$path.php", [BookingController::class, $name === 'availability' ? 'availability' : 'show']);
+$publicForms = [
+    'contact' => 'contact',
+    'enroll' => 'enroll',
+    'membership' => 'membership',
+    'dj-lesson' => 'djLesson',
+    'soundtunnel' => 'soundtunnel',
+    'dj-school' => 'djSchool',
+];
+foreach ($publicForms as $path => $method) {
+    Route::post("/forms/$path", [FormController::class, $method])->name("forms.$path");
 }
-Route::post('/api/bookings', [BookingController::class, 'store']);
-Route::post('/api/bookings.php', [BookingController::class, 'store']);
-foreach (['contact', 'enroll', 'membership', 'dj-lesson-inquiry' => 'djLesson', 'soundtunnel-request' => 'soundtunnel', 'dj-school-request' => 'djSchool'] as $path => $method) {
-    if (is_int($path)) {
-        $path = $method;
-    }
-    Route::post("/api/$path", [FormController::class, $method]);
-    Route::post("/api/$path.php", [FormController::class, $method]);
-}
-Route::get('/api/membership', [FormController::class, 'membershipStatus']);
-Route::get('/api/membership.php', [FormController::class, 'membershipStatus']);
-Route::post('/api/stripe-checkout', [StripeController::class, 'checkout']);
-Route::post('/api/stripe-checkout.php', [StripeController::class, 'checkout']);
+Route::get('/membership/status', [FormController::class, 'membershipStatus'])->name('membership.status');
+Route::post('/membership/checkout', [StripeController::class, 'checkout'])->name('membership.checkout');
 Route::post('/api/stripe-webhook', [StripeController::class, 'webhook']);
 Route::post('/api/stripe-webhook.php', [StripeController::class, 'webhook']);
 
@@ -203,5 +201,6 @@ Route::get('/membership-success.php', function (Request $request, StripeService 
             report($exception);
         }
     }
+
     return view('membership-success', compact('active'));
 })->name('membership.success');

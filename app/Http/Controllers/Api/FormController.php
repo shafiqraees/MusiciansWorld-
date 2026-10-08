@@ -7,25 +7,32 @@ use App\Models\FormSubmission;
 use App\Models\MembershipPlan;
 use App\Models\Program;
 use App\Models\ProgramRegistration;
-use App\Models\Role;
 use App\Models\User;
+use App\Services\CustomerAccountService;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 
 class FormController extends Controller
 {
-    public function contact(Request $request, NotificationService $notifications)
+    public function contact(Request $request, NotificationService $notifications, CustomerAccountService $accounts)
     {
-        $data = $request->validate(['name' => ['required', 'min:2'], 'email' => ['required', 'email'], 'message' => ['required', 'min:4']]);
-        $row = $this->save('contact', $data);
+        $data = $request->validate([
+            'name' => ['required', 'string', 'min:2', 'max:150'],
+            'email' => ['required', 'email', 'max:190'],
+            'phone' => ['nullable', 'string', 'max:40'],
+            'topic' => ['nullable', 'string', 'max:100'],
+            'message' => ['required', 'string', 'min:4', 'max:5000'],
+        ]);
+        $user = $this->account($request, $data, $accounts);
+        $this->save('contact', $data, $user);
         $notifications->adminAfterResponse('New contact message — '.$data['name'], $data);
+
         return response()->json(['ok' => true]);
     }
 
-    public function enroll(Request $request, NotificationService $notifications)
+    public function enroll(Request $request, NotificationService $notifications, CustomerAccountService $accounts)
     {
         if ($request->filled('website')) {
             return response()->json(['ok' => true, 'note' => 'Request received. The desk will follow up.']);
@@ -39,9 +46,10 @@ class FormController extends Controller
             'age' => ['nullable', 'string'],
             'comments' => ['nullable', 'string'],
         ]);
+        $user = $this->account($request, $data, $accounts);
         $program = Program::where('slug', $data['program'])->firstOrFail();
         ProgramRegistration::create([
-            'user_id' => auth()->id(),
+            'user_id' => $user->id,
             'program_id' => $program->id,
             'status' => 'received',
             'name' => $data['name'],
@@ -50,13 +58,14 @@ class FormController extends Controller
             'answers' => ['address' => $data['address'] ?? null, 'age' => $data['age'] ?? null],
             'notes' => $data['comments'] ?? null,
         ]);
-        $this->save('dj_enrollment', $data);
+        $this->save('dj_enrollment', $data, $user);
         $notifications->adminAfterResponse('New DJ School enrollment request — '.$data['name'], $data);
         $notifications->welcomeAfterResponse($data['email'], $data['name'], 'dj', $program->name);
+
         return response()->json(['ok' => true, 'note' => 'Request received. Check your email to complete DJ Registration.']);
     }
 
-    public function djLesson(Request $request, NotificationService $notifications)
+    public function djLesson(Request $request, NotificationService $notifications, CustomerAccountService $accounts)
     {
         if ($request->filled('website')) {
             return response()->json(['ok' => true, 'note' => 'Inquiry received. The desk will follow up to confirm placement.']);
@@ -73,12 +82,17 @@ class FormController extends Controller
             'eventDate' => ['nullable', 'date'], 'eventDetails' => ['nullable'],
         ]);
         $normalized = ['name' => $data['studentName'], 'email' => $data['email'], 'phone' => $data['phone'] ?? null] + $data;
-        $this->save('dj_lesson_inquiry', $normalized);
+        $user = $this->account($request, $normalized, $accounts);
+        $data['studentName'] = $normalized['name'];
+        $data['email'] = $normalized['email'];
+        $data['phone'] = $normalized['phone'];
+        $this->save('dj_lesson_inquiry', $normalized, $user);
         $notifications->adminAfterResponse('New Private DJ Lesson inquiry — '.$data['studentName'], $normalized);
+
         return response()->json(['ok' => true, 'note' => 'Inquiry received. The desk will follow up to confirm placement.']);
     }
 
-    public function soundtunnel(Request $request, NotificationService $notifications)
+    public function soundtunnel(Request $request, NotificationService $notifications, CustomerAccountService $accounts)
     {
         if ($request->filled('website')) {
             return response()->json(['ok' => true]);
@@ -107,13 +121,15 @@ class FormController extends Controller
             'referral' => ['nullable', 'string', 'max:100'],
             'terms' => ['accepted'],
         ]);
-        $this->save('soundtunnel_rental', $data);
+        $user = $this->account($request, $data, $accounts);
+        $this->save('soundtunnel_rental', $data, $user);
         $notifications->adminAfterResponse('New SoundTunnel rental request — '.$data['name'], $data);
         $notifications->welcomeAfterResponse($data['email'], $data['name'], 'soundtunnel', $data['eventType']);
+
         return response()->json(['ok' => true, 'note' => 'Application received. Check your email for the next registration step.']);
     }
 
-    public function djSchool(Request $request, NotificationService $notifications)
+    public function djSchool(Request $request, NotificationService $notifications, CustomerAccountService $accounts)
     {
         if ($request->filled('website')) {
             return response()->json(['ok' => true, 'note' => 'Request received. Check your email to complete DJ Registration.']);
@@ -162,11 +178,12 @@ class FormController extends Controller
         ]);
         $data['acknowledgment'] = 'Accepted';
 
-        $this->save('dj_school_inquiry', $data);
+        $user = $this->account($request, $data, $accounts);
+        $this->save('dj_school_inquiry', $data, $user);
         $slug = $programs[$data['program']];
         if ($slug && $program = Program::where('slug', $slug)->first()) {
             ProgramRegistration::create([
-                'user_id' => auth()->id(),
+                'user_id' => $user->id,
                 'program_id' => $program->id,
                 'status' => 'received',
                 'name' => $data['name'],
@@ -187,10 +204,11 @@ class FormController extends Controller
     {
         $limit = 50;
         $count = DB::table('customer_memberships')->where('membership_plan_id', MembershipPlan::where('slug', 'founder')->value('id'))->whereIn('status', ['active', 'trialing', 'grace'])->count();
+
         return response()->json(['max' => $limit, 'taken' => $count, 'remaining' => max(0, $limit - $count)]);
     }
 
-    public function membership(Request $request, NotificationService $notifications)
+    public function membership(Request $request, NotificationService $notifications, CustomerAccountService $accounts)
     {
         if ($request->filled('website')) {
             return response()->json(['ok' => true, 'plan' => 'community', 'note' => "You're on the list."]);
@@ -199,32 +217,53 @@ class FormController extends Controller
         if ($data['plan'] === 'founding') {
             return response()->json(['error' => 'Founding Member signups go through checkout.'], 400);
         }
+        $user = $this->account($request, $data, $accounts);
         if (in_array($data['plan'], ['creative_network', 'pro'], true)) {
-            $this->save('membership_waitlist', $data);
+            $this->save('membership_waitlist', $data, $user);
             $notifications->adminAfterResponse('New membership waitlist signup — '.$data['name'], $data);
+
             return response()->json(['ok' => true, 'plan' => $data['plan'], 'note' => "You're on the waitlist. The desk will reach out when this tier opens."]);
         }
-        DB::transaction(function () use ($data) {
-            $user = User::firstOrCreate(
-                ['email' => strtolower($data['email'])],
-                ['name' => $data['name'], 'phone' => $data['phone'] ?? null, 'password' => Hash::make(str()->random(40))]
-            );
-            $user->roles()->syncWithoutDetaching([Role::where('name', 'customer')->value('id')]);
-            $user->memberships()->firstOrCreate([
-                'membership_plan_id' => MembershipPlan::where('slug', 'community')->value('id'),
-            ], ['status' => 'active']);
-        });
+
         return response()->json(['ok' => true, 'plan' => 'community', 'note' => "You're on the community list. No charge."]);
     }
 
-    private function save(string $type, array $data): FormSubmission
+    private function save(string $type, array $data, User $user): FormSubmission
     {
         return FormSubmission::create([
-            'user_id' => auth()->id(), 'type' => $type, 'name' => $data['name'],
+            'user_id' => $user->id, 'type' => $type, 'name' => $data['name'],
             'email' => strtolower($data['email']), 'phone' => $data['phone'] ?? null,
             'event_date' => $data['date'] ?? $data['eventDate'] ?? null,
             'message' => $data['message'] ?? $data['comments'] ?? $data['goals'] ?? $data['eventDetails'] ?? null,
             'data' => $data,
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function account(Request $request, array &$data, CustomerAccountService $accounts): User
+    {
+        $user = $accounts->resolve($request->user(), [
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'phone' => $data['phone'] ?? null,
+            'city' => $data['city'] ?? null,
+            'state' => $data['state'] ?? null,
+            'postal_code' => $data['zip'] ?? null,
+        ]);
+
+        $data['email'] = $user->email;
+        if ($request->user()) {
+            $data['name'] = $user->name;
+            $data['phone'] = $user->phone ?? ($data['phone'] ?? null);
+            $data['city'] = $user->city ?? ($data['city'] ?? null);
+            $data['state'] = $user->state ?? ($data['state'] ?? null);
+            if (array_key_exists('zip', $data)) {
+                $data['zip'] = $user->postal_code ?? $data['zip'];
+            }
+        }
+
+        return $user;
     }
 }
