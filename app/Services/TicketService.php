@@ -37,6 +37,7 @@ class TicketService
                 'payment_status' => 'pending',
                 'subtotal_cents' => 0,
                 'total_cents' => 0,
+                'currency' => 'usd',
             ]);
             $subtotal = 0;
             foreach ($selections as $ticketTypeId => $quantity) {
@@ -54,10 +55,11 @@ class TicketService
                 ]);
                 $subtotal += $type->price_cents * $quantity;
             }
-            if (!$order->items()->exists()) {
+            if (! $order->items()->exists()) {
                 throw new RuntimeException('Choose at least one ticket.');
             }
             $order->update(['subtotal_cents' => $subtotal, 'total_cents' => $subtotal]);
+
             return $order->fresh(['items.ticketType', 'event']);
         }, 3);
     }
@@ -111,10 +113,11 @@ class TicketService
     {
         return DB::transaction(function () use ($token, $staffId) {
             $ticket = Ticket::where('qr_token_hash', hash('sha256', $token))->lockForUpdate()->first();
-            if (!$ticket || $ticket->status !== 'valid') {
+            if (! $ticket || $ticket->status !== 'valid') {
                 return ['result' => $ticket?->status === 'checked_in' ? 'ALREADY_USED' : 'INVALID', 'ticket' => $ticket];
             }
             $ticket->update(['status' => 'checked_in', 'checked_in_at' => now(), 'checked_in_by' => $staffId]);
+
             return ['result' => 'CHECKED_IN', 'ticket' => $ticket];
         });
     }

@@ -188,7 +188,7 @@ foreach ($publicForms as $path => $method) {
 }
 Route::get('/membership/status', [FormController::class, 'membershipStatus'])->name('membership.status');
 Route::post('/membership/checkout', [StripeController::class, 'checkout'])->name('membership.checkout');
-Route::post('/api/stripe-webhook', [StripeController::class, 'webhook']);
+Route::post('/api/stripe-webhook', [StripeController::class, 'webhook'])->name('stripe.webhook');
 Route::post('/api/stripe-webhook.php', [StripeController::class, 'webhook']);
 
 Route::get('/membership-success.php', function (Request $request, StripeService $stripe) {

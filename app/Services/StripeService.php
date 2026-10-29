@@ -18,6 +18,7 @@ class StripeService
     public function bookingCheckout(Booking $booking): Session
     {
         $local = $booking->starts_at->setTimezone($booking->resource->timezone);
+
         return $this->client()->checkout->sessions->create([
             'mode' => 'payment',
             'customer_email' => $booking->customer_email,
@@ -27,7 +28,7 @@ class StripeService
             'line_items' => [[
                 'quantity' => 1,
                 'price_data' => [
-                    'currency' => $booking->currency,
+                    'currency' => $this->checkoutCurrency($booking->currency),
                     'unit_amount' => $booking->total_cents,
                     'product_data' => [
                         'name' => 'Studio A — '.$local->format('Y-m-d · g:i A'),
@@ -58,11 +59,12 @@ class StripeService
         $lineItems = $order->items->map(fn ($item) => [
             'quantity' => $item->quantity,
             'price_data' => [
-                'currency' => $order->currency,
+                'currency' => $this->checkoutCurrency($order->currency),
                 'unit_amount' => $item->unit_price_cents,
                 'product_data' => ['name' => $item->ticketType->name.' — '.$order->event->title],
             ],
         ])->all();
+
         return $this->client()->checkout->sessions->create([
             'mode' => 'payment',
             'customer_email' => $order->buyer_email,
@@ -72,5 +74,12 @@ class StripeService
             'metadata' => ['purpose' => 'ticket_order', 'order_id' => $order->id, 'order_reference' => $order->reference],
             'payment_intent_data' => ['metadata' => ['purpose' => 'ticket_order', 'order_id' => $order->id]],
         ]);
+    }
+
+    private function checkoutCurrency(?string $currency): string
+    {
+        $currency = strtolower(trim((string) $currency));
+
+        return $currency !== '' ? $currency : 'usd';
     }
 }

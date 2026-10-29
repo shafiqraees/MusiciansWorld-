@@ -49,8 +49,13 @@ class StripeController extends Controller
 
     public function webhook(Request $request, BookingService $bookings, MicrosoftCalendarService $calendar, TicketService $tickets)
     {
+        $secret = (string) config('services.stripe.webhook_secret');
+        if ($secret === '') {
+            return response()->json(['error' => 'Webhook signing secret is not configured.'], 503);
+        }
+
         try {
-            $event = Webhook::constructEvent($request->getContent(), $request->header('Stripe-Signature', ''), config('services.stripe.webhook_secret'));
+            $event = Webhook::constructEvent($request->getContent(), $request->header('Stripe-Signature', ''), $secret);
         } catch (Throwable $exception) {
             return response()->json(['error' => 'Invalid webhook signature.'], 400);
         }
@@ -64,7 +69,12 @@ class StripeController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($event, $bookings, $calendar, $tickets) {
+            DB::transaction(function () use ($event, $record, $bookings, $calendar, $tickets) {
+                $locked = WebhookEvent::whereKey($record->id)->lockForUpdate()->firstOrFail();
+                if ($locked->status === 'processed') {
+                    return;
+                }
+
                 $object = $event->data->object;
                 if (in_array($event->type, ['checkout.session.completed', 'checkout.session.async_payment_succeeded'], true) && ($object->payment_status ?? null) === 'paid') {
                     $purpose = $object->metadata->purpose ?? null;
@@ -78,6 +88,8 @@ class StripeController extends Controller
                         $calendar->syncBooking($booking->fresh('resource'));
                     } elseif ($purpose === 'ticket_order') {
                         $tickets->fulfill(Order::findOrFail($object->metadata->order_id), $object->payment_intent ?? null);
+                    } elseif ($purpose === 'membership') {
+                        $this->activateMembershipFromCheckout($object);
                     }
                 }
                 if ($event->type === 'customer.subscription.created' || $event->type === 'customer.subscription.updated') {
@@ -86,11 +98,12 @@ class StripeController extends Controller
                 if ($event->type === 'customer.subscription.deleted') {
                     CustomerMembership::where('stripe_subscription_id', $object->id)->update(['status' => 'cancelled', 'cancelled_at' => now()]);
                 }
-                if ($event->type === 'invoice.payment_succeeded' && ! empty($object->subscription)) {
-                    CustomerMembership::where('stripe_subscription_id', $object->subscription)->update(['status' => 'active', 'grace_ends_at' => null]);
+                $subscriptionId = $this->invoiceSubscriptionId($object);
+                if ($event->type === 'invoice.payment_succeeded' && $subscriptionId) {
+                    CustomerMembership::where('stripe_subscription_id', $subscriptionId)->update(['status' => 'active', 'grace_ends_at' => null]);
                 }
-                if ($event->type === 'invoice.payment_failed' && ! empty($object->subscription)) {
-                    CustomerMembership::where('stripe_subscription_id', $object->subscription)->update(['status' => 'grace', 'grace_ends_at' => now()->addDays(7)]);
+                if ($event->type === 'invoice.payment_failed' && $subscriptionId) {
+                    CustomerMembership::where('stripe_subscription_id', $subscriptionId)->update(['status' => 'grace', 'grace_ends_at' => now()->addDays(7)]);
                 }
                 if ($event->type === 'checkout.session.expired') {
                     Booking::where('stripe_checkout_session_id', $object->id)->where('status', 'pending_payment')->update(['status' => 'expired', 'payment_status' => 'expired']);
@@ -105,7 +118,13 @@ class StripeController extends Controller
                     Order::where('stripe_payment_intent_id', $object->id)->update(['payment_status' => 'failed']);
                 }
                 if ($event->type === 'charge.refunded' && ! empty($object->payment_intent)) {
-                    Booking::where('stripe_payment_intent_id', $object->payment_intent)->update(['payment_status' => 'refunded', 'status' => 'cancelled']);
+                    Booking::where('stripe_payment_intent_id', $object->payment_intent)->get()->each(function (Booking $booking) use ($object) {
+                        $booking->update(['payment_status' => 'refunded', 'status' => 'cancelled']);
+                        FinancialTransaction::firstOrCreate(
+                            ['idempotency_key' => 'booking-refund-'.$booking->id],
+                            ['user_id' => $booking->user_id, 'transactable_type' => Booking::class, 'transactable_id' => $booking->id, 'type' => 'refund', 'status' => 'succeeded', 'amount_cents' => -1 * abs((int) ($object->amount_refunded ?? $booking->total_cents)), 'stripe_id' => $object->id ?? null]
+                        );
+                    });
                     $orders = Order::where('stripe_payment_intent_id', $object->payment_intent)->with('tickets')->get();
                     foreach ($orders as $order) {
                         foreach ($order->tickets->whereNotIn('status', ['refunded', 'cancelled', 'voided']) as $ticket) {
@@ -129,8 +148,8 @@ class StripeController extends Controller
                         'requirements' => $object->requirements?->toArray(),
                     ]);
                 }
+                $locked->update(['status' => 'processed', 'attempts' => $locked->attempts + 1, 'last_error' => null]);
             }, 3);
-            $record->update(['status' => 'processed', 'attempts' => $record->attempts + 1, 'last_error' => null]);
         } catch (Throwable $exception) {
             $record->update(['status' => 'failed', 'attempts' => $record->attempts + 1, 'last_error' => $exception->getMessage()]);
             report($exception);
@@ -139,6 +158,34 @@ class StripeController extends Controller
         }
 
         return response()->json(['received' => true]);
+    }
+
+    private function activateMembershipFromCheckout(object $session): void
+    {
+        $subscriptionId = $session->subscription ?? null;
+        if (is_object($subscriptionId)) {
+            $subscriptionId = $subscriptionId->id ?? null;
+        }
+        if (! is_string($subscriptionId) || $subscriptionId === '') {
+            return;
+        }
+
+        $this->syncSubscription((object) [
+            'id' => $subscriptionId,
+            'status' => 'active',
+            'customer' => is_object($session->customer ?? null) ? ($session->customer->id ?? null) : ($session->customer ?? null),
+            'metadata' => $session->metadata,
+        ]);
+    }
+
+    private function invoiceSubscriptionId(object $invoice): ?string
+    {
+        $subscription = $invoice->subscription ?? $invoice->parent->subscription_details->subscription ?? null;
+        if (is_object($subscription)) {
+            $subscription = $subscription->id ?? null;
+        }
+
+        return is_string($subscription) && $subscription !== '' ? $subscription : null;
     }
 
     private function syncSubscription(object $subscription): void

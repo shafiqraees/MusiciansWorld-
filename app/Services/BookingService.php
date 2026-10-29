@@ -120,6 +120,7 @@ class BookingService
                 'payment_status' => 'pending',
                 'subtotal_cents' => $price,
                 'total_cents' => $price,
+                'currency' => 'usd',
                 'customer_name' => $data['name'],
                 'customer_email' => strtolower($data['email']),
                 'customer_phone' => $data['phone'] ?? null,
