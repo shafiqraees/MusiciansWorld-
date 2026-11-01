@@ -42,7 +42,7 @@ $humanize = static function (string $key) use ($labels): string {
           <strong>{{ $submission->name }}</strong>
           <small>{{ $submission->email }}{{ $submission->phone ? ' · '.$submission->phone : '' }}</small>
         </span>
-        <span>{{ $submission->created_at->format('M j, Y g:i A') }}</span>
+        <span>{{ $submission->created_at->format('m/d/Y g:i A') }}</span>
       </summary>
       <dl class="admin-answer-grid">
         @foreach(($submission->data ?: []) as $key => $value)

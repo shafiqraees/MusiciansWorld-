@@ -75,10 +75,10 @@
             <td><div class="a-user-cell"><span class="a-avatar neutral sm">{{ $membership->user?->initials() ?? '?' }}</span><span><strong>@if($membership->user)<a class="a-link" style="color:inherit" href="{{ route('admin.users.show', $membership->user) }}">{{ $membership->user->name }}</a>@else Deleted user @endif</strong><small>{{ $membership->user?->email }}</small></span></div></td>
             <td><strong>{{ $membership->plan?->name }}</strong><small>{{ $membership->plan?->price_cents > 0 ? a_money($membership->plan->price_cents).' / '.a_label($membership->plan->billing_interval) : 'Free' }}</small></td>
             <td><x-admin.badge :status="$membership->status" :label="$statuses[$membership->status] ?? a_label($membership->status)" /></td>
-            <td class="nowrap">{{ $membership->current_period_start?->format('M j, Y') ?? '—' }} → {{ $membership->current_period_end?->format('M j, Y') ?? '—' }}</td>
-            <td class="nowrap">@if($membership->grace_ends_at)<span class="a-badge warn plain">Grace until {{ $membership->grace_ends_at->format('M j') }}</span>@endif @if($membership->cancelled_at)<small>Cancelled {{ $membership->cancelled_at->format('M j, Y') }}</small>@endif @if(!$membership->grace_ends_at && !$membership->cancelled_at)<span class="a-sub">—</span>@endif</td>
+            <td class="nowrap">{{ $membership->current_period_start?->format('m/d/Y') ?? '—' }} → {{ $membership->current_period_end?->format('m/d/Y') ?? '—' }}</td>
+            <td class="nowrap">@if($membership->grace_ends_at)<span class="a-badge warn plain">Grace until {{ $membership->grace_ends_at->format('m/d/Y') }}</span>@endif @if($membership->cancelled_at)<small>Cancelled {{ $membership->cancelled_at->format('m/d/Y') }}</small>@endif @if(!$membership->grace_ends_at && !$membership->cancelled_at)<span class="a-sub">—</span>@endif</td>
             <td><code class="a-code">{{ $membership->stripe_customer_id ?: '—' }}</code><small>{{ $membership->stripe_subscription_id ?: 'No subscription' }}</small></td>
-            <td class="nowrap">{{ $membership->created_at->format('M j, Y') }}</td>
+            <td class="nowrap">{{ $membership->created_at->format('m/d/Y') }}</td>
             <td class="actions"><div class="a-row-actions"><button class="a-btn ghost icon sm" type="button" data-modal-open="membership-{{ $membership->id }}" aria-label="Edit membership" title="Edit membership"><svg><use href="#ai-pencil"></use></svg></button></div></td>
           </tr>
         @empty
@@ -99,7 +99,7 @@
     @csrf @if($plan)@method('PATCH')@endif
     <input type="hidden" name="_modal" value="{{ $modalId }}">
     <div class="a-modal-body">
-      @if($plan)<div class="a-modal-summary"><div><small>Active members</small><strong>{{ $plan->active_memberships_count }}</strong></div><div><small>All-time members</small><strong>{{ $plan->memberships_count }}</strong></div><div><small>Last updated</small><strong>{{ $plan->updated_at?->format('M j, Y') }}</strong></div></div>@endif
+      @if($plan)<div class="a-modal-summary"><div><small>Active members</small><strong>{{ $plan->active_memberships_count }}</strong></div><div><small>All-time members</small><strong>{{ $plan->memberships_count }}</strong></div><div><small>Last updated</small><strong>{{ $plan->updated_at?->format('m/d/Y') }}</strong></div></div>@endif
       <div class="a-form-grid">
         <label class="a-field"><span>Plan name</span><input class="a-input" name="name" value="{{ old('name', $plan?->name) }}" required></label>
         <label class="a-field"><span>Slug</span><input class="a-input" name="slug" value="{{ old('slug', $plan?->slug) }}" placeholder="auto-generated from name"><small>Used in code and URLs. Changing it can affect integrations.</small></label>
@@ -150,7 +150,7 @@
       </div>
       <x-admin.reason />
     </div>
-    <div class="a-modal-foot">@if($membership)<span class="left">Created {{ $membership->created_at->format('M j, Y') }} · updated {{ $membership->updated_at->diffForHumans() }}</span>@endif<button class="a-btn ghost" type="button" data-modal-close>Cancel</button><button class="a-btn primary" type="submit">{{ $membership ? 'Save membership' : 'Assign membership' }}</button></div>
+    <div class="a-modal-foot">@if($membership)<span class="left">Created {{ $membership->created_at->format('m/d/Y') }} · updated {{ $membership->updated_at->diffForHumans() }}</span>@endif<button class="a-btn ghost" type="button" data-modal-close>Cancel</button><button class="a-btn primary" type="submit">{{ $membership ? 'Save membership' : 'Assign membership' }}</button></div>
   </form>
 </x-admin.modal>
 @endforeach

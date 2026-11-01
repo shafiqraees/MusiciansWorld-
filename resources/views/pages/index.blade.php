@@ -36,14 +36,28 @@ $slides = [
       Studio A, SoundTunnel, DJ School, and membership in <?= e($SITE["location"]) ?>. Open <?= e($SITE["hours"]) ?>.
     </p>
 
+    <?php
+      $rangeStart = now("America/Phoenix")->addHour()->setTime((int) now("America/Phoenix")->addHour()->format("H"), 0);
+      $hour = (int) $rangeStart->format("H");
+      if ($hour < 9 || $hour > 22) {
+          $rangeStart = $rangeStart->addDay()->setTime(9, 0);
+      }
+      $rangeEnd = $rangeStart->copy()->addHours(2);
+    ?>
     <form class="home-search fade-up fade-up-d3" id="home-search" action="<?= e(url("/book")) ?>" method="get">
       <label class="home-search-field">
         <span>Where</span>
         <input value="<?= e($SITE["location"]) ?>" readonly />
       </label>
-      <label class="home-search-field">
-        <span>When</span>
-        <input type="date" name="date" min="<?= e($today) ?>" value="<?= e($today) ?>" />
+      <label class="home-search-field home-range-field" id="home-from-wrap">
+        <span>From</span>
+        <input type="text" name="from_date" inputmode="numeric" placeholder="MM/DD/YYYY" pattern="\d{2}/\d{2}/\d{4}" value="<?= e($rangeStart->format("m/d/Y")) ?>" />
+        <input type="time" name="from_time" step="1800" value="<?= e($rangeStart->format("H:i")) ?>" />
+      </label>
+      <label class="home-search-field home-range-field" id="home-to-wrap">
+        <span>To</span>
+        <input type="text" name="to_date" inputmode="numeric" placeholder="MM/DD/YYYY" pattern="\d{2}/\d{2}/\d{4}" value="<?= e($rangeEnd->format("m/d/Y")) ?>" />
+        <input type="time" name="to_time" step="1800" value="<?= e($rangeEnd->format("H:i")) ?>" />
       </label>
       <label class="home-search-field">
         <span>Space</span>
@@ -51,14 +65,6 @@ $slides = [
           <option value="studio-a">Studio A</option>
           <option value="soundtunnel">SoundTunnel</option>
           <option value="dj-school">DJ School</option>
-        </select>
-      </label>
-      <label class="home-search-field" id="home-duration-wrap">
-        <span>Duration</span>
-        <select name="duration">
-          <?php foreach ($STUDIO_A_DURATIONS as $h): ?>
-            <option value="<?= (int) $h ?>"><?= (int) $h ?> hours · $<?= (int) $STUDIO_A_PRICES[$h] ?></option>
-          <?php endforeach; ?>
         </select>
       </label>
       <div class="home-search-go">

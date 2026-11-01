@@ -64,7 +64,7 @@ $prefs = $user->communication_preferences ?? [];
           <div class="a-card-body">
             <dl class="a-dl">
               <dt>Full name</dt><dd>{{ $user->name }}</dd>
-              <dt>Email</dt><dd>{{ $user->email }} <small class="a-sub" style="display:inline">{{ $user->email_verified_at ? '· verified '.$user->email_verified_at->format('M j, Y g:i A') : '· not verified' }}</small></dd>
+              <dt>Email</dt><dd>{{ $user->email }} <small class="a-sub" style="display:inline">{{ $user->email_verified_at ? '· verified '.$user->email_verified_at->format('m/d/Y g:i A') : '· not verified' }}</small></dd>
               <dt>Phone</dt><dd>{{ $user->phone ?: '—' }}</dd>
               <dt>Location</dt><dd>{{ collect([$user->city, $user->state, $user->postal_code])->filter()->join(', ') ?: '—' }}</dd>
               <dt>Account type</dt><dd>{{ $user->accountTypeLabel() }}</dd>
@@ -79,9 +79,9 @@ $prefs = $user->communication_preferences ?? [];
           <div class="a-card-head"><div><h3>Account & security</h3><p>Sign-in history and lifecycle timestamps.</p></div></div>
           <div class="a-card-body">
             <div class="a-kv">
-              <div><small>Created</small><strong>{{ $user->created_at->format('M j, Y g:i A') }}</strong></div>
-              <div><small>Last updated</small><strong>{{ $user->updated_at->format('M j, Y g:i A') }}</strong></div>
-              <div><small>Last sign-in</small><strong>{{ $user->last_login_at ? $user->last_login_at->format('M j, Y g:i A') : 'Never' }}</strong></div>
+              <div><small>Created</small><strong>{{ $user->created_at->format('m/d/Y g:i A') }}</strong></div>
+              <div><small>Last updated</small><strong>{{ $user->updated_at->format('m/d/Y g:i A') }}</strong></div>
+              <div><small>Last sign-in</small><strong>{{ $user->last_login_at ? $user->last_login_at->format('m/d/Y g:i A') : 'Never' }}</strong></div>
               <div><small>Last sign-in IP</small><strong>{{ $user->last_login_ip ?: '—' }}</strong></div>
               <div><small>Active sessions</small><strong>{{ $sessions->count() }}</strong></div>
               <div><small>Remember-me token</small><strong>{{ $user->remember_token ? 'Issued' : 'None' }}</strong></div>
@@ -117,7 +117,7 @@ $prefs = $user->communication_preferences ?? [];
           <div class="a-card-head"><div><h3>Memberships</h3><p>Every plan this customer has held, including Stripe billing identifiers.</p></div><a class="a-btn ghost sm" href="{{ route('admin.memberships', ['tab' => 'members', 'search' => $user->email]) }}">Manage in Memberships</a></div>
           <div class="a-table-wrap"><table class="a-table"><thead><tr><th>Plan</th><th>Status</th><th>Current period</th><th>Grace / cancelled</th><th>Stripe</th><th>Since</th></tr></thead><tbody>
             @forelse($user->memberships->sortByDesc('created_at') as $membership)
-              <tr><td><strong>{{ $membership->plan?->name }}</strong><small>{{ a_money($membership->plan?->price_cents) }} / {{ a_label($membership->plan?->billing_interval) }}</small></td><td><x-admin.badge :status="$membership->status" /></td><td class="nowrap">{{ $membership->current_period_start?->format('M j, Y') ?? '—' }} → {{ $membership->current_period_end?->format('M j, Y') ?? '—' }}</td><td class="nowrap">{{ $membership->grace_ends_at ? 'Grace until '.$membership->grace_ends_at->format('M j') : '' }}{{ $membership->cancelled_at ? 'Cancelled '.$membership->cancelled_at->format('M j, Y') : ($membership->grace_ends_at ? '' : '—') }}</td><td><code class="a-code">{{ $membership->stripe_customer_id ?: '—' }}</code><small>{{ $membership->stripe_subscription_id ?: 'No subscription' }}</small></td><td class="nowrap">{{ $membership->created_at->format('M j, Y') }}</td></tr>
+              <tr><td><strong>{{ $membership->plan?->name }}</strong><small>{{ a_money($membership->plan?->price_cents) }} / {{ a_label($membership->plan?->billing_interval) }}</small></td><td><x-admin.badge :status="$membership->status" /></td><td class="nowrap">{{ $membership->current_period_start?->format('m/d/Y') ?? '—' }} → {{ $membership->current_period_end?->format('m/d/Y') ?? '—' }}</td><td class="nowrap">{{ $membership->grace_ends_at ? 'Grace until '.$membership->grace_ends_at->format('m/d/Y') : '' }}{{ $membership->cancelled_at ? 'Cancelled '.$membership->cancelled_at->format('m/d/Y') : ($membership->grace_ends_at ? '' : '—') }}</td><td><code class="a-code">{{ $membership->stripe_customer_id ?: '—' }}</code><small>{{ $membership->stripe_subscription_id ?: 'No subscription' }}</small></td><td class="nowrap">{{ $membership->created_at->format('m/d/Y') }}</td></tr>
             @empty<tr><td colspan="6"><div class="a-table-empty"><strong>No memberships</strong>This account has never held a membership plan.</div></td></tr>@endforelse
           </tbody></table></div>
         </section>
@@ -129,7 +129,7 @@ $prefs = $user->communication_preferences ?? [];
           <div class="a-card-head"><div><h3>Bookings</h3><p>Studio and venue reservations placed by this account.</p></div><a class="a-btn ghost sm" href="{{ route('admin.bookings', ['search' => $user->email]) }}">Open booking desk</a></div>
           <div class="a-table-wrap"><table class="a-table"><thead><tr><th>Reference</th><th>Space</th><th>When</th><th>Total</th><th>Status</th><th>Payment</th><th>Calendar</th></tr></thead><tbody>
             @forelse($user->bookings->sortByDesc('starts_at') as $booking)
-              <tr><td><code class="a-code">{{ $booking->reference }}</code></td><td>{{ $booking->resource?->name }}<small>{{ a_label($booking->service_type) }}</small></td><td class="nowrap">{{ $booking->starts_at->setTimezone($booking->resource?->timezone ?? 'America/Phoenix')->format('M j, Y g:i A') }}<small>{{ $booking->starts_at->diffInMinutes($booking->ends_at) / 60 }} hours</small></td><td class="num">{{ a_money($booking->total_cents) }}</td><td><x-admin.badge :status="$booking->status" /></td><td><x-admin.badge :status="$booking->payment_status" /></td><td><x-admin.badge :status="$booking->calendar_sync_status" /></td></tr>
+              <tr><td><code class="a-code">{{ $booking->reference }}</code></td><td>{{ $booking->resource?->name }}<small>{{ a_label($booking->service_type) }}</small></td><td class="nowrap">{{ $booking->starts_at->setTimezone($booking->resource?->timezone ?? 'America/Phoenix')->format('m/d/Y g:i A') }}<small>{{ $booking->starts_at->diffInMinutes($booking->ends_at) / 60 }} hours</small></td><td class="num">{{ a_money($booking->total_cents) }}</td><td><x-admin.badge :status="$booking->status" /></td><td><x-admin.badge :status="$booking->payment_status" /></td><td><x-admin.badge :status="$booking->calendar_sync_status" /></td></tr>
             @empty<tr><td colspan="7"><div class="a-table-empty"><strong>No bookings</strong>This account has not reserved a space yet.</div></td></tr>@endforelse
           </tbody></table></div>
         </section>
@@ -141,7 +141,7 @@ $prefs = $user->communication_preferences ?? [];
           <div class="a-card-head"><div><h3>Hosted events</h3><p>Events this account organizes, with settlement status.</p></div><a class="a-btn ghost sm" href="{{ route('admin.events', ['search' => $user->email]) }}">Open events</a></div>
           <div class="a-table-wrap"><table class="a-table"><thead><tr><th>Event</th><th>When</th><th>Location</th><th>Capacity</th><th>Status</th><th>Settlement</th></tr></thead><tbody>
             @forelse($user->events->sortByDesc('starts_at') as $event)
-              <tr><td><strong>{{ $event->title }}</strong><small>{{ $event->reference }}</small></td><td class="nowrap">{{ $event->starts_at->format('M j, Y g:i A') }}</td><td>{{ a_label($event->location_type) }}{{ $event->venue_name ? ' · '.$event->venue_name : '' }}</td><td class="num">{{ number_format($event->capacity) }}</td><td><x-admin.badge :status="$event->status" /></td><td>@if($event->settlement)<x-admin.badge :status="$event->settlement->status" /><small>{{ a_money($event->settlement->organizer_proceeds_cents) }} to organizer</small>@else<span class="a-sub">—</span>@endif</td></tr>
+              <tr><td><strong>{{ $event->title }}</strong><small>{{ $event->reference }}</small></td><td class="nowrap">{{ $event->starts_at->format('m/d/Y g:i A') }}</td><td>{{ a_label($event->location_type) }}{{ $event->venue_name ? ' · '.$event->venue_name : '' }}</td><td class="num">{{ number_format($event->capacity) }}</td><td><x-admin.badge :status="$event->status" /></td><td>@if($event->settlement)<x-admin.badge :status="$event->settlement->status" /><small>{{ a_money($event->settlement->organizer_proceeds_cents) }} to organizer</small>@else<span class="a-sub">—</span>@endif</td></tr>
             @empty<tr><td colspan="6"><div class="a-table-empty"><strong>No hosted events</strong>This account has not created any events.</div></td></tr>@endforelse
           </tbody></table></div>
         </section>
@@ -149,7 +149,7 @@ $prefs = $user->communication_preferences ?? [];
           <div class="a-card-head"><div><h3>Tickets & orders</h3><p>Tickets purchased or claimed by this account.</p></div></div>
           <div class="a-table-wrap"><table class="a-table"><thead><tr><th>Ticket</th><th>Event</th><th>Type</th><th>Attendee</th><th>Status</th><th>Checked in</th></tr></thead><tbody>
             @forelse($user->tickets->sortByDesc('created_at') as $ticket)
-              <tr><td><code class="a-code">{{ substr($ticket->uuid, 0, 8) }}</code><small>Order #{{ $ticket->order_id }}</small></td><td>{{ $ticket->event?->title }}</td><td>{{ $ticket->ticketType?->name }}<small>{{ a_money($ticket->ticketType?->price_cents) }}</small></td><td>{{ $ticket->attendee_name ?: $user->name }}<small>{{ $ticket->attendee_email ?: $user->email }}</small></td><td><x-admin.badge :status="$ticket->status" /></td><td class="nowrap">{{ $ticket->checked_in_at?->format('M j, g:i A') ?? '—' }}</td></tr>
+              <tr><td><code class="a-code">{{ substr($ticket->uuid, 0, 8) }}</code><small>Order #{{ $ticket->order_id }}</small></td><td>{{ $ticket->event?->title }}</td><td>{{ $ticket->ticketType?->name }}<small>{{ a_money($ticket->ticketType?->price_cents) }}</small></td><td>{{ $ticket->attendee_name ?: $user->name }}<small>{{ $ticket->attendee_email ?: $user->email }}</small></td><td><x-admin.badge :status="$ticket->status" /></td><td class="nowrap">{{ $ticket->checked_in_at?->format('m/d/Y g:i A') ?? '—' }}</td></tr>
             @empty<tr><td colspan="6"><div class="a-table-empty"><strong>No tickets</strong>This account has not purchased tickets.</div></td></tr>@endforelse
           </tbody></table></div>
           @if($user->orders->isNotEmpty())
@@ -164,7 +164,7 @@ $prefs = $user->communication_preferences ?? [];
           <div class="a-card-head"><div><h3>Payments & ledger</h3><p>Financial transactions recorded against this account.</p></div></div>
           <div class="a-table-wrap"><table class="a-table"><thead><tr><th>Date</th><th>Type</th><th>Related to</th><th>Amount</th><th>Status</th><th>Stripe reference</th></tr></thead><tbody>
             @forelse($user->transactions->sortByDesc('created_at') as $transaction)
-              <tr><td class="nowrap">{{ $transaction->created_at->format('M j, Y g:i A') }}</td><td>{{ a_label($transaction->type) }}</td><td>{{ $transaction->transactable_type ? class_basename($transaction->transactable_type).' #'.$transaction->transactable_id : '—' }}</td><td class="num" style="color:{{ $transaction->amount_cents < 0 ? 'var(--a-danger)' : 'inherit' }}">{{ a_money($transaction->amount_cents) }}</td><td><x-admin.badge :status="$transaction->status" /></td><td><code class="a-code">{{ $transaction->stripe_id ?: '—' }}</code></td></tr>
+              <tr><td class="nowrap">{{ $transaction->created_at->format('m/d/Y g:i A') }}</td><td>{{ a_label($transaction->type) }}</td><td>{{ $transaction->transactable_type ? class_basename($transaction->transactable_type).' #'.$transaction->transactable_id : '—' }}</td><td class="num" style="color:{{ $transaction->amount_cents < 0 ? 'var(--a-danger)' : 'inherit' }}">{{ a_money($transaction->amount_cents) }}</td><td><x-admin.badge :status="$transaction->status" /></td><td><code class="a-code">{{ $transaction->stripe_id ?: '—' }}</code></td></tr>
             @empty<tr><td colspan="6"><div class="a-table-empty"><strong>No payment records</strong>Nothing has been charged or refunded for this account.</div></td></tr>@endforelse
           </tbody></table></div>
         </section>
@@ -176,7 +176,7 @@ $prefs = $user->communication_preferences ?? [];
           <div class="a-card-head"><div><h3>Form submissions</h3><p>Leads and inquiries linked to this account.</p></div><a class="a-btn ghost sm" href="{{ route('admin.submissions') }}">All submissions</a></div>
           <div class="a-table-wrap"><table class="a-table"><thead><tr><th>Type</th><th>Status</th><th>Message</th><th>Submitted</th></tr></thead><tbody>
             @forelse($user->submissions->sortByDesc('created_at') as $submission)
-              <tr><td>{{ a_label($submission->type) }}</td><td><x-admin.badge :status="$submission->status" /></td><td><small style="white-space:normal;max-width:460px">{{ str($submission->message ?: collect($submission->data ?? [])->filter(fn ($v) => is_scalar($v))->take(4)->map(fn ($v, $k) => a_label($k).': '.$v)->join(' · '))->limit(160) }}</small></td><td class="nowrap">{{ $submission->created_at->format('M j, Y g:i A') }}</td></tr>
+              <tr><td>{{ a_label($submission->type) }}</td><td><x-admin.badge :status="$submission->status" /></td><td><small style="white-space:normal;max-width:460px">{{ str($submission->message ?: collect($submission->data ?? [])->filter(fn ($v) => is_scalar($v))->take(4)->map(fn ($v, $k) => a_label($k).': '.$v)->join(' · '))->limit(160) }}</small></td><td class="nowrap">{{ $submission->created_at->format('m/d/Y g:i A') }}</td></tr>
             @empty<tr><td colspan="4"><div class="a-table-empty"><strong>No submissions</strong>No forms are linked to this account.</div></td></tr>@endforelse
           </tbody></table></div>
         </section>
@@ -184,7 +184,7 @@ $prefs = $user->communication_preferences ?? [];
           <div class="a-card-head"><div><h3>DJ School registrations</h3><p>Program enrolments and assigned instructors.</p></div></div>
           <div class="a-table-wrap"><table class="a-table"><thead><tr><th>Program</th><th>Status</th><th>Payment</th><th>Instructor</th><th>Registered</th></tr></thead><tbody>
             @forelse($user->registrations->sortByDesc('created_at') as $registration)
-              <tr><td><strong>{{ $registration->program?->name ?? 'Unassigned program' }}</strong></td><td><x-admin.badge :status="$registration->status" /></td><td>{{ a_label($registration->payment_status) }}</td><td>{{ $registration->instructor?->name ?? '—' }}</td><td class="nowrap">{{ $registration->created_at->format('M j, Y') }}</td></tr>
+              <tr><td><strong>{{ $registration->program?->name ?? 'Unassigned program' }}</strong></td><td><x-admin.badge :status="$registration->status" /></td><td>{{ a_label($registration->payment_status) }}</td><td>{{ $registration->instructor?->name ?? '—' }}</td><td class="nowrap">{{ $registration->created_at->format('m/d/Y') }}</td></tr>
             @empty<tr><td colspan="5"><div class="a-table-empty"><strong>No registrations</strong>This account has not enrolled in a program.</div></td></tr>@endforelse
           </tbody></table></div>
         </section>
@@ -200,7 +200,7 @@ $prefs = $user->communication_preferences ?? [];
               @foreach($history as $log)
                 <div class="a-timeline-item"><i></i><div>
                   <strong>{{ a_label($log->action) }}</strong>
-                  <small>{{ $log->created_at->format('M j, Y g:i A') }} · {{ $log->actor_id === $user->id ? 'performed by this user' : 'by '.($log->actor?->name ?? 'System') }} · {{ class_basename($log->auditable_type) }} #{{ $log->auditable_id }}{{ $log->ip_address ? ' · '.$log->ip_address : '' }}</small>
+                  <small>{{ $log->created_at->format('m/d/Y g:i A') }} · {{ $log->actor_id === $user->id ? 'performed by this user' : 'by '.($log->actor?->name ?? 'System') }} · {{ class_basename($log->auditable_type) }} #{{ $log->auditable_id }}{{ $log->ip_address ? ' · '.$log->ip_address : '' }}</small>
                   @if($log->reason)<small>Reason: {{ $log->reason }}</small>@endif
                   @if($log->before || $log->after)<details><summary>Before / after</summary><pre>{{ json_encode(['before' => $log->before, 'after' => collect($log->after)->except(['password', 'remember_token'])], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre></details>@endif
                 </div></div>

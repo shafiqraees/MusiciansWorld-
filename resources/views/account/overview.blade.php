@@ -5,7 +5,7 @@
   <div>
     <p class="kicker">Connected customer platform</p>
     <h1>Welcome, {{ $user->name }}</h1>
-    <p>Account #{{ $user->id }} · member since {{ $user->created_at->format('M j, Y') }}. Everything you do with MWCN — studio time, DJ School, tickets, events and payments — is managed from the left menu.</p>
+    <p>Account #{{ $user->id }} · member since {{ $user->created_at->format('m/d/Y') }}. Everything you do with MWCN — studio time, DJ School, tickets, events and payments — is managed from the left menu.</p>
   </div>
   <div class="acct-head-actions">
     <a class="btn btn-ghost" href="/book">Book Studio A</a>
@@ -14,8 +14,8 @@
 </div>
 
 <div class="acct-stats">
-  <a class="acct-stat is-mark" href="{{ route('account.membership') }}"><small>Membership</small><strong>{{ $membership?->plan?->name ?? 'None' }}</strong><span>{{ $membership?->cancelled_at ? 'Ends '.$membership->current_period_end?->format('M j') : ($membership?->current_period_end ? 'Renews '.$membership->current_period_end->format('M j, Y') : 'No renewal date') }}</span></a>
-  <a class="acct-stat" href="{{ route('account.bookings') }}"><small>Upcoming bookings</small><strong>{{ $upcomingBookings->count() }}</strong><span>{{ $upcomingBookings->first()?->starts_at?->timezone($upcomingBookings->first()?->resource?->timezone ?? 'America/Phoenix')->format('D, M j · g:i A') ?? 'Nothing scheduled' }}</span></a>
+  <a class="acct-stat is-mark" href="{{ route('account.membership') }}"><small>Membership</small><strong>{{ $membership?->plan?->name ?? 'None' }}</strong><span>{{ $membership?->cancelled_at ? 'Ends '.$membership->current_period_end?->format('m/d/Y') : ($membership?->current_period_end ? 'Renews '.$membership->current_period_end->format('m/d/Y') : 'No renewal date') }}</span></a>
+  <a class="acct-stat" href="{{ route('account.bookings') }}"><small>Upcoming bookings</small><strong>{{ $upcomingBookings->count() }}</strong><span>{{ $upcomingBookings->first()?->starts_at?->timezone($upcomingBookings->first()?->resource?->timezone ?? 'America/Phoenix')->format('m/d/Y g:i A') ?? 'Nothing scheduled' }}</span></a>
   <a class="acct-stat" href="{{ route('account.tickets') }}"><small>Upcoming tickets</small><strong>{{ $upcomingTickets->count() }}</strong><span>{{ $upcomingTickets->first()?->event?->title ?? 'No upcoming events' }}</span></a>
   <a class="acct-stat is-ok" href="{{ route('account.payments') }}"><small>Total paid</small><strong>{{ a_money($spent) }}</strong><span>{{ $recentReceipts->count() }} recent receipt{{ $recentReceipts->count() === 1 ? '' : 's' }}</span></a>
 </div>
@@ -26,7 +26,7 @@
     @forelse($upcomingBookings->take(3) as $booking)
       <div class="acct-item" style="margin-top:.75rem">
         <div class="acct-item-top">
-          <div><strong>{{ $booking->resource->name ?? 'Studio A' }}</strong><span>{{ $booking->starts_at->timezone($booking->resource->timezone ?? 'America/Phoenix')->format('D, M j · g:i A') }} – {{ $booking->ends_at->timezone($booking->resource->timezone ?? 'America/Phoenix')->format('g:i A') }}</span></div>
+          <div><strong>{{ $booking->resource->name ?? 'Studio A' }}</strong><span>From {{ $booking->starts_at->timezone($booking->resource->timezone ?? 'America/Phoenix')->format('m/d/Y g:i A') }} to {{ $booking->ends_at->timezone($booking->resource->timezone ?? 'America/Phoenix')->format('m/d/Y g:i A') }}</span></div>
           {!! acct_badge($booking->status) !!}
         </div>
       </div>
@@ -40,7 +40,7 @@
     @forelse($upcomingTickets->take(3) as $ticket)
       <div class="acct-item" style="margin-top:.75rem">
         <div class="acct-item-top">
-          <div><strong>{{ $ticket->event->title }}</strong><span>{{ $ticket->event->starts_at?->timezone($ticket->event->resource->timezone ?? 'America/Phoenix')->format('D, M j · g:i A') }} · {{ $ticket->ticketType?->name ?? 'General admission' }}</span></div>
+          <div><strong>{{ $ticket->event->title }}</strong><span>{{ $ticket->event->starts_at?->timezone($ticket->event->resource->timezone ?? 'America/Phoenix')->format('m/d/Y g:i A') }} · {{ $ticket->ticketType?->name ?? 'General admission' }}</span></div>
           {!! acct_badge($ticket->status) !!}
         </div>
       </div>
@@ -62,7 +62,7 @@
           <tbody>
             @foreach($recentReceipts as $tx)
               <tr>
-                <td>{{ $tx->created_at->format('M j, Y') }}</td>
+                <td>{{ $tx->created_at->format('m/d/Y') }}</td>
                 <td><a href="{{ route('account.receipts.show', $tx) }}">{{ \App\Support\Finance::label($tx->type) }}</a></td>
                 <td>{!! acct_badge($tx->status) !!}</td>
                 <td class="is-num acct-money {{ $tx->amount_cents < 0 ? 'is-neg' : '' }}">{{ a_money($tx->amount_cents) }}</td>

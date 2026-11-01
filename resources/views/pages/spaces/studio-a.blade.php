@@ -23,7 +23,7 @@ $rows = [[2, $STUDIO_A_PRICES[2]], [3, $STUDIO_A_PRICES[3]], [4, $STUDIO_A_PRICE
       <h2 class="display mt-3 text-4xl md:text-5xl">Built for sessions that actually start.</h2>
       <p class="mt-5 leading-8 text-dim">
         Studio A is the working studio at Musicians World — rehearsal, writing, and creative lockouts in
-        <?= e(location_for("studio-a")) ?>. You pick a date, a start time, and a duration. The calendar shows when the
+        <?= e(location_for("studio-a")) ?>. You pick a from time and a to time. The calendar shows when the
         room is open, partial, or fully booked.
       </p>
       <h3 class="display mt-10 text-2xl">Included equipment</h3>

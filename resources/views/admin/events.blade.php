@@ -55,7 +55,7 @@ $reviewActions = [
         <tr>
           <td><strong>{{ $event->title }}</strong><small><code class="a-code">{{ $event->reference }}</code>{{ $event->category ? ' · '.$event->category : '' }} · {{ $event->visibility }}</small></td>
           <td><strong>@if($event->organizer)<a class="a-link" style="color:inherit" href="{{ route('admin.users.show', $event->organizer) }}">{{ $event->organizer->name }}</a>@else — @endif</strong><small>{{ $event->organizer?->email }}</small></td>
-          <td class="nowrap">{{ $event->starts_at->format('D, M j, Y') }}<small>{{ $event->starts_at->format('g:i A') }} – {{ $event->ends_at->format('g:i A') }}{{ $event->doors_at ? ' · doors '.$event->doors_at->format('g:i A') : '' }}</small></td>
+          <td class="nowrap">{{ $event->starts_at->format('m/d/Y') }}<small>{{ $event->starts_at->format('g:i A') }} – {{ $event->ends_at->format('g:i A') }}{{ $event->doors_at ? ' · doors '.$event->doors_at->format('g:i A') : '' }}</small></td>
           <td>{{ $locations[$event->location_type] ?? a_label($event->location_type) }}<small>{{ $event->location_type === 'soundtunnel' ? ($event->resource?->name ?? 'SoundTunnel') : ($event->venue_name ?: ($event->location_type === 'virtual' ? 'Online' : '—')) }}</small></td>
           <td class="num"><strong>{{ number_format($event->capacity) }}</strong><small>{{ (int) $event->tickets_sold }} sold · {{ $event->ticket_types_count }} ticket types</small></td>
           <td><x-admin.badge :status="$event->status" :label="$statuses[$event->status] ?? a_label($event->status)" />@if($event->status === 'submitted' && $event->submitted_at)<small>Submitted {{ $event->submitted_at->diffForHumans() }}</small>@endif</td>
@@ -72,7 +72,7 @@ $reviewActions = [
 </div></section>
 
 @foreach($events as $event)
-<x-admin.modal id="event-{{ $event->id }}" :title="$event->title" :kicker="($statuses[$event->status] ?? a_label($event->status)).' · '.$event->reference" :subtitle="$event->starts_at->format('l, F j, Y · g:i A').' – '.$event->ends_at->format('g:i A').' · '.($event->organizer?->name ?? 'Unknown organizer')" size="xl">
+<x-admin.modal id="event-{{ $event->id }}" :title="$event->title" :kicker="($statuses[$event->status] ?? a_label($event->status)).' · '.$event->reference" :subtitle="$event->starts_at->format('m/d/Y g:i A').' – '.$event->ends_at->format('g:i A').' · '.($event->organizer?->name ?? 'Unknown organizer')" size="xl">
   <div class="a-modal-body">
     <div class="a-modal-summary" style="grid-template-columns:repeat(4,minmax(0,1fr))">
       <div><small>Capacity</small><strong>{{ number_format($event->capacity) }}</strong></div>
@@ -123,7 +123,7 @@ $reviewActions = [
         @csrf @method('PATCH')
         <input type="hidden" name="_modal" value="event-{{ $event->id }}"><input type="hidden" name="_pane" value="review">
         <dl class="a-dl is-compact" style="margin-bottom:16px">
-          <dt>Timeline</dt><dd>Created {{ $event->created_at->format('M j, Y') }}{{ $event->submitted_at ? ' · submitted '.$event->submitted_at->format('M j, Y g:i A') : '' }}{{ $event->approved_at ? ' · approved '.$event->approved_at->format('M j, Y') : '' }}{{ $event->published_at ? ' · published '.$event->published_at->format('M j, Y') : '' }}</dd>
+          <dt>Timeline</dt><dd>Created {{ $event->created_at->format('m/d/Y') }}{{ $event->submitted_at ? ' · submitted '.$event->submitted_at->format('m/d/Y g:i A') : '' }}{{ $event->approved_at ? ' · approved '.$event->approved_at->format('m/d/Y') : '' }}{{ $event->published_at ? ' · published '.$event->published_at->format('m/d/Y') : '' }}</dd>
           <dt>Current status</dt><dd><x-admin.badge :status="$event->status" :label="$statuses[$event->status] ?? a_label($event->status)" /></dd>
         </dl>
         <div class="a-check-grid">
@@ -150,8 +150,8 @@ $reviewActions = [
           <div><small>Adjustments</small><strong>{{ a_money($event->settlement->adjustments_cents) }}</strong></div>
           <div><small>Organizer proceeds</small><strong style="color:var(--a-success)">{{ a_money($event->settlement->organizer_proceeds_cents) }}</strong></div>
           <div><small>Stripe transfer</small><strong>{{ $event->settlement->stripe_transfer_id ?: '—' }}</strong></div>
-          <div><small>Approved</small><strong>{{ $event->settlement->approved_at?->format('M j, Y') ?? '—' }}</strong></div>
-          <div><small>Paid</small><strong>{{ $event->settlement->paid_at?->format('M j, Y') ?? '—' }}</strong></div>
+          <div><small>Approved</small><strong>{{ $event->settlement->approved_at?->format('m/d/Y') ?? '—' }}</strong></div>
+          <div><small>Paid</small><strong>{{ $event->settlement->paid_at?->format('m/d/Y') ?? '—' }}</strong></div>
         </div>
         @if($event->settlement->hold_reason)<div class="a-alert error"><svg class="a-icon" viewBox="0 0 24 24"><use href="#ai-alert"></use></svg><div><strong>On hold:</strong> {{ $event->settlement->hold_reason }}</div></div>@endif
       @else

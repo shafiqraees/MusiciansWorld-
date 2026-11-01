@@ -15,7 +15,7 @@
     <dl class="acct-dl">
       <div><dt>Account ID</dt><dd>#{{ $user->id }}</dd></div>
       <div><dt>Email</dt><dd>{{ $user->email }} {!! $user->hasVerifiedEmail() ? acct_badge('verified', 'Verified') : acct_badge('pending', 'Unverified') !!}</dd></div>
-      <div><dt>Member since</dt><dd>{{ $user->created_at->format('M j, Y') }}</dd></div>
+      <div><dt>Member since</dt><dd>{{ $user->created_at->format('m/d/Y') }}</dd></div>
       <div><dt>Last sign in</dt><dd>{{ $user->last_login_at?->diffForHumans() ?? '—' }}</dd></div>
       <div><dt>Account roles</dt><dd>{{ $user->roles->pluck('label')->join(', ') ?: 'Customer' }}</dd></div>
       <div><dt>Account type</dt><dd>{{ $user->accountTypeLabel() }}</dd></div>

@@ -39,13 +39,13 @@
         <tr>
           <td><code class="a-code">{{ $booking->reference }}</code>@if($booking->hold_expires_at && $booking->status === 'pending_payment')<small>Hold expires {{ $booking->hold_expires_at->diffForHumans() }}</small>@endif</td>
           <td><strong>{{ $booking->resource?->name }}</strong><small>{{ a_label($booking->service_type) }}</small></td>
-          <td class="nowrap">{{ $booking->starts_at->setTimezone($tz)->format('D, M j, Y') }}<small>{{ $booking->starts_at->setTimezone($tz)->format('g:i A') }} – {{ $booking->ends_at->setTimezone($tz)->format('g:i A') }} · {{ rtrim(rtrim(number_format($booking->starts_at->diffInMinutes($booking->ends_at) / 60, 1), '0'), '.') }}h</small></td>
+          <td class="nowrap">From {{ $booking->starts_at->setTimezone($tz)->format('m/d/Y g:i A') }}<small>To {{ $booking->ends_at->setTimezone($tz)->format('m/d/Y g:i A') }}</small></td>
           <td><strong>@if($booking->user)<a class="a-link" style="color:inherit" href="{{ route('admin.users.show', $booking->user) }}">{{ $booking->customer_name }}</a>@else{{ $booking->customer_name }}@endif</strong><small>{{ $booking->customer_email }}{{ $booking->customer_phone ? ' · '.$booking->customer_phone : '' }}</small></td>
           <td class="num"><strong>{{ a_money($booking->total_cents) }}</strong>@if($booking->discount_cents)<small>−{{ a_money($booking->discount_cents) }} discount</small>@endif</td>
           <td><x-admin.badge :status="$booking->status" :label="$statuses[$booking->status] ?? a_label($booking->status)" /></td>
           <td><x-admin.badge :status="$booking->payment_status" /></td>
           <td><x-admin.badge :status="$booking->calendar_sync_status" /></td>
-          <td class="nowrap">{{ $booking->created_at->format('M j, Y') }}<small>{{ $booking->created_at->format('g:i A') }}</small></td>
+          <td class="nowrap">{{ $booking->created_at->format('m/d/Y') }}<small>{{ $booking->created_at->format('g:i A') }}</small></td>
           <td class="actions"><div class="a-row-actions"><button class="a-btn ghost icon sm" type="button" data-modal-open="booking-{{ $booking->id }}" aria-label="{{ $canManage ? 'Edit' : 'View' }} booking {{ $booking->reference }}" title="{{ $canManage ? 'Edit booking' : 'View booking' }}"><svg><use href="#ai-{{ $canManage ? 'pencil' : 'eye' }}"></use></svg></button></div></td>
         </tr>
       @empty
@@ -59,7 +59,7 @@
 
 @foreach($bookings as $booking)
 @php($tz = $booking->resource?->timezone ?? 'America/Phoenix')
-<x-admin.modal id="booking-{{ $booking->id }}" :title="'Booking '.$booking->reference" :kicker="$booking->resource?->name.' · '.a_label($booking->service_type)" :subtitle="$booking->starts_at->setTimezone($tz)->format('l, F j, Y · g:i A').' – '.$booking->ends_at->setTimezone($tz)->format('g:i A').' ('.$tz.')'" size="lg">
+<x-admin.modal id="booking-{{ $booking->id }}" :title="'Booking '.$booking->reference" :kicker="$booking->resource?->name.' · '.a_label($booking->service_type)" :subtitle="'From '.$booking->starts_at->setTimezone($tz)->format('m/d/Y g:i A').' to '.$booking->ends_at->setTimezone($tz)->format('m/d/Y g:i A')" size="lg">
   <form method="post" action="{{ route('admin.bookings.update', $booking) }}">
     @csrf @method('PATCH')
     <input type="hidden" name="_modal" value="booking-{{ $booking->id }}">
@@ -74,7 +74,7 @@
         <dt>Linked account</dt><dd>@if($booking->user)<a class="a-link" href="{{ route('admin.users.show', $booking->user) }}">{{ $booking->user->name }}</a> · {{ $booking->user->email }}@else Guest checkout (no account) @endif</dd>
         <dt>Stripe</dt><dd><code class="a-code">{{ $booking->stripe_payment_intent_id ?: ($booking->stripe_checkout_session_id ?: 'No Stripe reference') }}</code></dd>
         <dt>Calendar event</dt><dd>{{ $booking->calendar_event_id ?: 'Not created' }}@if($booking->calendar_sync_error)<small class="a-sub" style="color:var(--a-danger)">{{ $booking->calendar_sync_error }}</small>@endif</dd>
-        <dt>Created</dt><dd>{{ $booking->created_at->format('M j, Y g:i A') }} · last update {{ $booking->updated_at->diffForHumans() }}</dd>
+        <dt>Created</dt><dd>{{ $booking->created_at->format('m/d/Y g:i A') }} · last update {{ $booking->updated_at->diffForHumans() }}</dd>
         @if($booking->meta)<dt>Metadata</dt><dd><code class="a-code">{{ json_encode($booking->meta) }}</code></dd>@endif
       </dl>
       @if($canManage)

@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\StripeService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Mockery\MockInterface;
 use Stripe\Checkout\Session;
@@ -105,6 +106,40 @@ class CustomerFormAccountTest extends TestCase
 
         $this->assertSame($user->id, $booking->user_id);
         $this->assertTrue($user->hasRole('customer'));
+        $this->assertTrue(Hash::check('booking.guest@example.com', $user->password));
+
+        $this->post('/login', [
+            'email' => 'booking.guest@example.com',
+            'password' => 'booking.guest@example.com',
+        ])->assertRedirect(route('account.dashboard'));
+        $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_guest_can_book_a_custom_from_and_to_range(): void
+    {
+        $this->mock(StripeService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('bookingCheckout')->once()->andReturn(Session::constructFrom([
+                'id' => 'cs_test_range',
+                'url' => 'https://checkout.stripe.test/range',
+            ]));
+        });
+
+        $from = now('America/Phoenix')->addDays(10)->setTime(18, 0);
+        $to = $from->copy()->addHours(3);
+
+        $this->postJson(route('booking.store'), [
+            'resourceId' => 'studio-a',
+            'from' => $from->format('Y-m-d\TH:i'),
+            'to' => $to->format('Y-m-d\TH:i'),
+            'name' => 'Range Guest',
+            'email' => 'range.guest@example.com',
+            'phone' => '480-565-6708',
+        ])->assertOk()->assertJsonPath('url', 'https://checkout.stripe.test/range');
+
+        $booking = Booking::query()->where('customer_email', 'range.guest@example.com')->firstOrFail();
+        $this->assertSame($from->format('m/d/Y g:i A'), $booking->meta['from']);
+        $this->assertSame($to->format('m/d/Y g:i A'), $booking->meta['to']);
+        $this->assertSame(10500, $booking->total_cents);
     }
 
     public function test_legacy_php_availability_endpoint_is_no_longer_used(): void

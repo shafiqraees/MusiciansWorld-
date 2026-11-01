@@ -25,13 +25,13 @@
       <div class="acct-item-top">
         <div>
           <strong>{{ $booking->resource->name ?? 'Studio A' }} · {{ $booking->reference }}</strong>
-          <span>{{ $booking->starts_at->timezone($tz)->format('D, M j, Y · g:i A') }} – {{ $booking->ends_at->timezone($tz)->format('g:i A T') }} · {{ $booking->starts_at->diffInMinutes($booking->ends_at) }} min</span>
+          <span>From {{ $booking->starts_at->timezone($tz)->format('m/d/Y g:i A') }} to {{ $booking->ends_at->timezone($tz)->format('m/d/Y g:i A') }}</span>
         </div>
         <div class="acct-pills">{!! acct_badge($booking->status) !!} {!! acct_badge($booking->payment_status, 'Payment '.a_label($booking->payment_status)) !!}</div>
       </div>
       <dl class="acct-dl">
         <div><dt>Charged</dt><dd>{{ a_money($booking->total_cents) }}@if($booking->discount_cents) <span class="acct-meta">(includes {{ a_money($booking->discount_cents) }} member discount)</span>@endif</dd></div>
-        <div><dt>Booked</dt><dd>{{ $booking->created_at->format('M j, Y') }}</dd></div>
+        <div><dt>Booked</dt><dd>{{ $booking->created_at->format('m/d/Y') }}</dd></div>
         @if($booking->notes)<div><dt>Notes</dt><dd style="white-space:pre-line">{{ $booking->notes }}</dd></div>@endif
       </dl>
       @if($booking->status === 'confirmed')
@@ -62,7 +62,7 @@
             <tr>
               <td>{{ $booking->reference }}</td>
               <td>{{ $booking->resource->name ?? '—' }}</td>
-              <td>{{ $booking->starts_at->timezone($tz)->format('M j, Y · g:i A') }}</td>
+              <td>From {{ $booking->starts_at->timezone($tz)->format('m/d/Y g:i A') }} to {{ $booking->ends_at->timezone($tz)->format('m/d/Y g:i A') }}</td>
               <td>{!! acct_badge($booking->status) !!}</td>
               <td>{!! acct_badge($booking->payment_status) !!}</td>
               <td class="is-num">{{ a_money($booking->total_cents) }}</td>

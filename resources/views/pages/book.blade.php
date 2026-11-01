@@ -1,11 +1,11 @@
 <?php
 global $MEDIA;
 $GLOBALS["page_scripts"] = ["assets/js/booking.js"];
-page_start("Book Studio A · MusiciansWorld", "Choose a date, pick a start time and duration, then pay securely with Stripe to confirm Studio A.");
+page_start("Book Studio A · MusiciansWorld", "Choose a from time and a to time, review the range, then pay securely with Stripe to confirm Studio A.");
 page_hero(
     "Booking · Studio A",
     "Book<br />Studio A.",
-    "Select a date, then a start time and duration. Confirm booking to pay with Stripe. You’ll return here after a successful or cancelled payment.",
+    "Select a start slot and an end slot. Review the from and to times, then continue to payment.",
     $MEDIA["studioA"][0]
 );
 ?>

@@ -9,12 +9,12 @@
     <h1>{{ $membership?->plan?->name ?? 'No active membership' }}</h1>
     <p>Your membership unlocks studio pricing, promoter fee tiers and DJ School perks. Changing plans never removes your account history.</p>
   </div>
-  @if($membership){!! acct_badge($membership->cancelled_at ? 'pending' : $membership->status, $membership->cancelled_at ? 'Ending '.($membership->current_period_end?->format('M j') ?? 'soon') : null) !!}@endif
+  @if($membership){!! acct_badge($membership->cancelled_at ? 'pending' : $membership->status, $membership->cancelled_at ? 'Ending '.($membership->current_period_end?->format('m/d/Y') ?? 'soon') : null) !!}@endif
 </div>
 
 @if($membership?->cancelled_at && $isPaid)
   <form method="post" action="{{ route('account.membership.resume') }}" class="acct-note is-warn">@csrf
-    <span>Your {{ $membership->plan->name }} is scheduled to end on <strong>{{ $membership->current_period_end?->format('F j, Y') ?? 'the end of this period' }}</strong>. You keep every benefit until then, and your account moves to the free Community tier afterwards — nothing is deleted.</span>
+    <span>Your {{ $membership->plan->name }} is scheduled to end on <strong>{{ $membership->current_period_end?->format('m/d/Y') ?? 'the end of this period' }}</strong>. You keep every benefit until then, and your account moves to the free Community tier afterwards — nothing is deleted.</span>
     <button class="acct-text-btn" type="submit">Keep my membership</button>
   </form>
 @endif
@@ -22,7 +22,7 @@
 <div class="acct-stats">
   <div class="acct-stat is-mark"><small>Plan</small><strong>{{ $membership?->plan?->name ?? '—' }}</strong><span>{{ $membership?->plan ? ($membership->plan->price_cents ? a_money($membership->plan->price_cents).' / '.($membership->plan->billing_interval ?: 'month') : 'Free') : 'Pick a plan below' }}</span></div>
   <div class="acct-stat"><small>Status</small><strong>{{ a_label($membership?->status ?? 'none') }}</strong><span>{{ $membership?->cancelled_at ? 'Cancellation scheduled' : 'In good standing' }}</span></div>
-  <div class="acct-stat"><small>{{ $membership?->cancelled_at ? 'Ends' : 'Renews' }}</small><strong>{{ $membership?->current_period_end?->format('M j, Y') ?? '—' }}</strong><span>{{ $membership?->current_period_start ? 'Period started '.$membership->current_period_start->format('M j') : 'No billing period' }}</span></div>
+  <div class="acct-stat"><small>{{ $membership?->cancelled_at ? 'Ends' : 'Renews' }}</small><strong>{{ $membership?->current_period_end?->format('m/d/Y') ?? '—' }}</strong><span>{{ $membership?->current_period_start ? 'Period started '.$membership->current_period_start->format('m/d/Y') : 'No billing period' }}</span></div>
   <div class="acct-stat"><small>Benefits</small><strong>{{ count($benefits) }}</strong><span><a href="{{ route('account.benefits') }}">See what's included</a></span></div>
 </div>
 
@@ -33,21 +33,21 @@
       <dl class="acct-dl">
         <div><dt>Plan</dt><dd>{{ $membership->plan?->name }}</dd></div>
         <div><dt>Price</dt><dd>{{ $membership->plan?->price_cents ? a_money($membership->plan->price_cents).' per '.($membership->plan->billing_interval ?: 'month') : 'Free' }}</dd></div>
-        <div><dt>Status</dt><dd>{{ $membership->cancelled_at ? 'Active until '.($membership->current_period_end?->format('M j, Y') ?? 'period end').' (cancellation scheduled)' : a_label($membership->status) }}</dd></div>
-        <div><dt>{{ $membership->cancelled_at ? 'Next charge' : 'Renews' }}</dt><dd>{{ $membership->cancelled_at ? 'None — your plan will not renew' : ($renews?->format('M j, Y') ?? 'No renewal date') }}</dd></div>
+        <div><dt>Status</dt><dd>{{ $membership->cancelled_at ? 'Active until '.($membership->current_period_end?->format('m/d/Y') ?? 'period end').' (cancellation scheduled)' : a_label($membership->status) }}</dd></div>
+        <div><dt>{{ $membership->cancelled_at ? 'Next charge' : 'Renews' }}</dt><dd>{{ $membership->cancelled_at ? 'None — your plan will not renew' : ($renews?->format('m/d/Y') ?? 'No renewal date') }}</dd></div>
         <div><dt>Billing</dt><dd>{{ $membership->plan?->price_cents ? ($membership->stripe_subscription_id ? 'Card on file, billed automatically through Stripe' : 'Billed by the MWCN desk') : 'No charge' }}</dd></div>
-        <div><dt>Member since</dt><dd>{{ $membership->created_at->format('M j, Y') }}</dd></div>
+        <div><dt>Member since</dt><dd>{{ $membership->created_at->format('m/d/Y') }}</dd></div>
       </dl>
       @if($membership->plan?->description)<p class="acct-lead">{{ $membership->plan->description }}</p>@endif
 
       <div class="acct-actions">
         @if($isPaid && !$membership->cancelled_at)
           <form method="post" action="{{ route('account.membership.cancel') }}">@csrf
-            <label class="acct-confirm"><input type="checkbox" name="confirm" value="1" required> I understand my {{ $membership->plan->name }} benefits continue until {{ $membership->current_period_end?->format('M j, Y') ?? 'the end of the current period' }}, then my account returns to the free Community tier. My history is kept.</label>
+            <label class="acct-confirm"><input type="checkbox" name="confirm" value="1" required> I understand my {{ $membership->plan->name }} benefits continue until {{ $membership->current_period_end?->format('m/d/Y') ?? 'the end of the current period' }}, then my account returns to the free Community tier. My history is kept.</label>
             <button class="btn btn-ghost" type="submit">Cancel at period end</button>
           </form>
         @elseif($isPaid && $membership->cancelled_at)
-          <p class="acct-lead">Cancellation requested on {{ $membership->cancelled_at->format('M j, Y') }}. No further charges will be made; your benefits continue until {{ $membership->current_period_end?->format('M j, Y') ?? 'the end of the current period' }}. Use <strong>Keep my membership</strong> above if you change your mind.</p>
+          <p class="acct-lead">Cancellation requested on {{ $membership->cancelled_at->format('m/d/Y') }}. No further charges will be made; your benefits continue until {{ $membership->current_period_end?->format('m/d/Y') ?? 'the end of the current period' }}. Use <strong>Keep my membership</strong> above if you change your mind.</p>
         @else
           <p class="acct-lead">Community membership is free and stays with your account. Upgrade any time for lower promoter fees and studio perks.</p>
           <a class="btn btn-mark" href="/membership">Compare paid plans</a>
@@ -91,9 +91,9 @@
             <tr>
               <td>{{ $row->plan?->name ?? '—' }}</td>
               <td>{!! acct_badge($row->status) !!}</td>
-              <td>{{ $row->current_period_start?->format('M j, Y') ?? '—' }} → {{ $row->current_period_end?->format('M j, Y') ?? '—' }}</td>
-              <td>{{ $row->created_at->format('M j, Y') }}</td>
-              <td>{{ $row->cancelled_at?->format('M j, Y') ?? '—' }}</td>
+              <td>{{ $row->current_period_start?->format('m/d/Y') ?? '—' }} → {{ $row->current_period_end?->format('m/d/Y') ?? '—' }}</td>
+              <td>{{ $row->created_at->format('m/d/Y') }}</td>
+              <td>{{ $row->cancelled_at?->format('m/d/Y') ?? '—' }}</td>
               <td class="is-num">{{ $row->plan?->price_cents ? a_money($row->plan->price_cents) : 'Free' }}</td>
             </tr>
           @endforeach

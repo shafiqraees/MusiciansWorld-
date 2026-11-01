@@ -27,7 +27,7 @@
         <div class="acct-item-top">
           <div>
             <strong><a href="{{ route('events.show', $ticket->event->slug) }}">{{ $ticket->event->title }}</a></strong>
-            <span>{{ $ticket->event->starts_at?->timezone($tz)->format('D, M j, Y · g:i A T') }}{{ $ticket->event->doors_at ? ' · doors '.$ticket->event->doors_at->timezone($tz)->format('g:i A') : '' }}</span>
+            <span>{{ $ticket->event->starts_at?->timezone($tz)->format('m/d/Y g:i A') }}{{ $ticket->event->doors_at ? ' · doors '.$ticket->event->doors_at->timezone($tz)->format('g:i A') : '' }}</span>
             <span>{{ $ticket->event->venue_name ?: ($ticket->event->resource->name ?? 'MWCN') }}</span>
           </div>
           {!! acct_badge($ticket->status) !!}
@@ -56,7 +56,7 @@
           <div class="acct-item-top">
             <div>
               <strong>{{ $order->reference }} · {{ $order->event?->title ?? 'Event' }}</strong>
-              <span>{{ $order->created_at->format('M j, Y · g:i A') }} · {{ $order->items->sum('quantity') }} ticket(s)</span>
+              <span>{{ $order->created_at->format('m/d/Y g:i A') }} · {{ $order->items->sum('quantity') }} ticket(s)</span>
             </div>
             <div class="acct-pills">{!! acct_badge($order->payment_status) !!} @if($receipt)<a class="acct-status is-mark" href="{{ route('account.receipts.show', $receipt) }}">Receipt</a>@endif</div>
           </div>
@@ -93,7 +93,7 @@
         @foreach($past as $ticket)
           <tr>
             <td>{{ $ticket->event?->title ?? '—' }}</td>
-            <td>{{ $ticket->event?->starts_at?->timezone($ticket->event->resource->timezone ?? 'America/Phoenix')->format('M j, Y') ?? '—' }}</td>
+            <td>{{ $ticket->event?->starts_at?->timezone($ticket->event->resource->timezone ?? 'America/Phoenix')->format('m/d/Y') ?? '—' }}</td>
             <td>{{ $ticket->ticketType?->name ?? '—' }}</td>
             <td>{!! acct_badge($ticket->status) !!}</td>
             <td>{{ $ticket->order?->reference ?? '—' }}</td>

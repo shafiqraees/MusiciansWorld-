@@ -6,7 +6,7 @@ $describe = function ($tx) {
     $t = $tx->transactable;
     return match (true) {
         $t instanceof \App\Models\Order => $t->event?->title ?? 'Event tickets',
-        $t instanceof \App\Models\Booking => ($t->resource?->name ?? 'Studio').($t->starts_at ? ' · '.$t->starts_at->timezone($t->resource?->timezone ?? 'America/Phoenix')->format('M j, Y') : ' booking'),
+        $t instanceof \App\Models\Booking => ($t->resource?->name ?? 'Studio').($t->starts_at ? ' · '.$t->starts_at->timezone($t->resource?->timezone ?? 'America/Phoenix')->format('m/d/Y') : ' booking'),
         $t instanceof \App\Models\CustomerMembership => ($t->plan?->name ?? 'Membership').' membership',
         default => \App\Support\Finance::label($tx->type),
     };
@@ -26,7 +26,7 @@ $describe = function ($tx) {
   <div class="acct-stat is-mark"><small>Total paid</small><strong>{{ a_money($totals['paid']) }}</strong><span>succeeded payments</span></div>
   <div class="acct-stat"><small>Refunded</small><strong>{{ a_money($totals['refunded']) }}</strong><span>returned to you</span></div>
   <div class="acct-stat"><small>Transactions</small><strong>{{ $totals['count'] }}</strong><span>on record</span></div>
-  <div class="acct-stat"><small>Last payment</small><strong>{{ $totals['last']?->format('M j') ?? '—' }}</strong><span>{{ $totals['last']?->format('Y') ?? 'none yet' }}</span></div>
+  <div class="acct-stat"><small>Last payment</small><strong>{{ $totals['last']?->format('m/d/Y') ?? '—' }}</strong><span>{{ $totals['last']?->format('Y') ?? 'none yet' }}</span></div>
 </div>
 
 <div class="acct-panel">
@@ -47,7 +47,7 @@ $describe = function ($tx) {
         <tbody>
           @foreach($transactions as $tx)
             <tr>
-              <td class="is-nowrap">{{ $tx->created_at->format('M j, Y') }}<small>{{ $tx->created_at->format('g:i A') }}</small></td>
+              <td class="is-nowrap">{{ $tx->created_at->format('m/d/Y') }}<small>{{ $tx->created_at->format('g:i A') }}</small></td>
               <td class="is-nowrap"><a href="{{ route('account.receipts.show', $tx) }}">MWCN-{{ str_pad($tx->id, 6, '0', STR_PAD_LEFT) }}</a></td>
               <td>{{ $describe($tx) }}
                 @if($tx->transactable instanceof \App\Models\Order)

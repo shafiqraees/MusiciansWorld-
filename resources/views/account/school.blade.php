@@ -27,7 +27,7 @@
       <div class="acct-item-top">
         <div>
           <strong>{{ $registration->program?->name ?? 'Program' }}</strong>
-          <span>{{ a_label($registration->program?->type ?? 'program') }}{{ is_string($registration->program?->schedule) && $registration->program->schedule !== '' ? ' · '.$registration->program->schedule : '' }} · registered {{ $registration->created_at->format('M j, Y') }}</span>
+          <span>{{ a_label($registration->program?->type ?? 'program') }}{{ is_string($registration->program?->schedule) && $registration->program->schedule !== '' ? ' · '.$registration->program->schedule : '' }} · registered {{ $registration->created_at->format('m/d/Y') }}</span>
         </div>
         <div class="acct-pills">{!! acct_badge($registration->status) !!} {!! acct_badge($registration->payment_status, 'Payment '.a_label($registration->payment_status)) !!}</div>
       </div>
@@ -52,7 +52,7 @@
       @foreach($inquiries as $inquiry)
         <li>
           <div class="acct-item-top"><strong>{{ a_label(str_replace(['dj_', '_inquiry'], ['DJ ', ' inquiry'], $inquiry->type)) }}</strong>{!! acct_badge($inquiry->status) !!}</div>
-          <span>{{ $inquiry->created_at->format('M j, Y') }}{{ $inquiry->event_date ? ' · preferred '.\Illuminate\Support\Carbon::parse($inquiry->event_date)->format('M j, Y') : '' }}</span>
+          <span>{{ $inquiry->created_at->format('m/d/Y') }}{{ $inquiry->event_date ? ' · preferred '.\Illuminate\Support\Carbon::parse($inquiry->event_date)->format('m/d/Y') : '' }}</span>
           @if($inquiry->message)<span>{{ \Illuminate\Support\Str::limit($inquiry->message, 220) }}</span>@endif
         </li>
       @endforeach

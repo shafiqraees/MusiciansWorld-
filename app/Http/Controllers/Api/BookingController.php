@@ -25,6 +25,9 @@ class BookingController extends Controller
             'date' => ['nullable', 'date_format:Y-m-d'],
             'duration' => ['nullable', 'integer', 'in:2,3,4,6,8'],
             'start' => ['nullable', 'integer'],
+            'end' => ['nullable', 'integer'],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date'],
         ]);
         $resource = Resource::where('slug', 'studio-a')->firstOrFail();
         if (isset($data['month'], $data['year'])) {
@@ -42,26 +45,45 @@ class BookingController extends Controller
         $date = $data['date'] ?? phoenix_date_iso();
         $duration = (int) ($data['duration'] ?? 2);
         $busy = $bookings->busyRanges($resource, $date);
-        $slots = array_map(fn ($start) => [
-            'start' => $start,
-            'label' => format_clock($start),
-            'available' => $date >= phoenix_date_iso() && is_available($busy, $start, $duration),
-        ], iter_starts($duration));
-        $requested = null;
-        if (isset($data['start'])) {
-            $available = $date >= phoenix_date_iso() && is_available($busy, (int) $data['start'], $duration);
-            $requested = [
-                'available' => $available,
-                'alternatives' => $available ? [] : array_map(fn ($time) => ['start' => $time, 'label' => format_clock($time)], nearby_times($busy, (int) $data['start'], $duration)),
+        $slots = [];
+        for ($time = OPEN_MIN; $time <= CLOSE_MIN; $time += SLOT_STEP) {
+            $isEndpoint = $time === CLOSE_MIN;
+            $slots[] = [
+                'start' => $time,
+                'label' => format_clock($time),
+                'available' => $date >= phoenix_date_iso() && ($isEndpoint || is_range_open($busy, $time, $time + SLOT_STEP)),
             ];
+        }
+        $price = intdiv($bookings->price($resource, $duration), 100);
+        $quote = null;
+        if (! empty($data['from']) && ! empty($data['to'])) {
+            $rangeStart = CarbonImmutable::parse($data['from'], $resource->timezone);
+            $rangeEnd = CarbonImmutable::parse($data['to'], $resource->timezone);
+            $status = $bookings->rangeStatus($resource, $rangeStart, $rangeEnd);
+            $quote = [
+                'available' => $status === 'ok',
+                'status' => $status,
+                'price' => $status === 'invalid_range' ? null : intdiv($bookings->priceForMinutes($resource, (int) $rangeStart->diffInMinutes($rangeEnd)), 100),
+                'from' => $rangeStart->format('m/d/Y g:i A'),
+                'to' => $rangeEnd->format('m/d/Y g:i A'),
+            ];
+            if ($quote['price'] !== null) {
+                $price = $quote['price'];
+            }
+        } elseif (isset($data['start'], $data['end'])) {
+            $minutes = (int) $data['end'] - (int) $data['start'];
+            if ($minutes >= SLOT_STEP) {
+                $price = intdiv($bookings->priceForMinutes($resource, $minutes), 100);
+            }
         }
 
         return response()->json([
             'resource' => 'studio-a', 'date' => $date, 'duration' => $duration,
-            'price' => intdiv($bookings->price($resource, $duration), 100),
+            'price' => $price,
             'dayStatus' => day_status($busy, $date, phoenix_date_iso()),
             'busy' => array_map(fn ($block) => $block + ['label' => format_clock($block['start']).' to '.format_clock($block['end'])], $busy),
-            'slots' => $slots, 'requested' => $requested,
+            'slots' => $slots,
+            'quote' => $quote,
         ]);
     }
 
@@ -77,9 +99,11 @@ class BookingController extends Controller
     {
         $data = $request->validate([
             'resourceId' => ['required', 'in:studio-a'],
-            'date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
-            'start' => ['required', 'integer', 'min:540', 'max:1560'],
-            'durationHours' => ['required', 'integer', 'in:2,3,4,6,8'],
+            'from' => ['required_without:durationHours', 'date'],
+            'to' => ['required_with:from', 'date', 'after:from'],
+            'date' => ['required_without:from', 'date_format:Y-m-d', 'after_or_equal:today'],
+            'start' => ['required_without:from', 'integer', 'min:540', 'max:1560'],
+            'durationHours' => ['required_without:from', 'integer', 'in:2,3,4,6,8'],
             'name' => ['required', 'string', 'min:2', 'max:150'],
             'email' => ['required', 'email', 'max:190'],
             'phone' => ['nullable', 'string', 'max:40'],
@@ -107,19 +131,31 @@ class BookingController extends Controller
             $session = $stripe->bookingCheckout($booking->load('resource'));
             $booking->update(['stripe_checkout_session_id' => $session->id]);
 
+            $localStart = $booking->starts_at->setTimezone($booking->resource->timezone);
+            $localEnd = $booking->ends_at->setTimezone($booking->resource->timezone);
+
             return response()->json([
                 'id' => $booking->reference,
-                'date' => $data['date'],
-                'start' => (int) $data['start'],
-                'durationHours' => (int) $data['durationHours'],
+                'from' => $localStart->format('m/d/Y g:i A'),
+                'to' => $localEnd->format('m/d/Y g:i A'),
+                'date' => $localStart->format('Y-m-d'),
+                'start' => (int) ($booking->meta['legacy_start_minutes'] ?? ($localStart->hour * 60 + $localStart->minute)),
+                'durationHours' => $booking->meta['duration_hours'] ?? null,
                 'price' => intdiv($booking->total_cents, 100),
                 'url' => $session->url,
             ]);
         } catch (RuntimeException $exception) {
-            if ($exception->getMessage() === 'UNAVAILABLE') {
-                return response()->json(['error' => 'This time is unavailable.', 'code' => 'UNAVAILABLE'], 409);
+            $message = match ($exception->getMessage()) {
+                'UNAVAILABLE' => 'This time is unavailable.',
+                'CLOSED' => 'That range includes hours when Studio A is closed (2:00 AM–9:00 AM).',
+                'INVALID_RANGE' => 'Choose an end time after the start time.',
+                default => null,
+            };
+            if ($message === null) {
+                throw $exception;
             }
-            throw $exception;
+
+            return response()->json(['error' => $message, 'code' => $exception->getMessage()], $exception->getMessage() === 'UNAVAILABLE' ? 409 : 422);
         } catch (Throwable $exception) {
             if (isset($booking)) {
                 $booking->update(['status' => 'cancelled', 'payment_status' => 'failed']);

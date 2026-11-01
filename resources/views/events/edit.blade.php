@@ -7,7 +7,7 @@
   <div>
     <p class="kicker"><a href="{{ route('account.events') }}" style="color:inherit">My Events</a> · {{ $event->reference }}</p>
     <h1>{{ $event->title }}</h1>
-    <p>{{ $event->starts_at?->timezone($tz)->format('l, F j, Y · g:i A T') }} · {{ $event->venue_name ?: ($event->resource->name ?? a_label($event->location_type)) }} · platform fee {{ \App\Support\Finance::percent((int) $event->platform_fee_bps) }}</p>
+    <p>{{ $event->starts_at?->timezone($tz)->format('m/d/Y g:i A') }} · {{ $event->venue_name ?: ($event->resource->name ?? a_label($event->location_type)) }} · platform fee {{ \App\Support\Finance::percent((int) $event->platform_fee_bps) }}</p>
   </div>
   <div class="acct-head-actions">
     {!! acct_badge($event->status) !!}

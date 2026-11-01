@@ -58,14 +58,14 @@
           <td><span class="a-badge plain {{ $row->account_type === 'admin' ? 'purple' : ($row->account_type === 'staff' ? 'info' : 'neutral') }}">{{ $row->accountTypeLabel() }}</span></td>
           <td><div class="a-badges">@forelse($row->roles as $role)<span class="a-pill">{{ $role->label }}</span>@empty<span class="a-sub">No role</span>@endforelse</div></td>
           @if($segment !== 'admins' && $segment !== 'staff')
-            <td>@if($membership)<x-admin.badge :status="$membership->status" :label="$membership->plan?->name" /><small>{{ a_label($membership->status) }}@if($membership->current_period_end) · renews {{ $membership->current_period_end->format('M j') }}@endif</small>@else<span class="a-sub">No membership</span>@endif</td>
+            <td>@if($membership)<x-admin.badge :status="$membership->status" :label="$membership->plan?->name" /><small>{{ a_label($membership->status) }}@if($membership->current_period_end) · renews {{ $membership->current_period_end->format('m/d/Y') }}@endif</small>@else<span class="a-sub">No membership</span>@endif</td>
           @endif
           @if($segment === 'admins' || $segment === 'staff')
             <td>{{ $row->job_title ?: '—' }}</td>
           @endif
           <td class="nowrap"><span title="Bookings">{{ $row->bookings_count }} bookings</span><small>{{ $row->events_count }} events · {{ $row->tickets_count }} tickets</small></td>
           <td><x-admin.badge :status="$row->status" /><small>{{ $row->email_verified_at ? 'Email verified' : 'Unverified email' }}</small></td>
-          <td class="nowrap">{{ $row->created_at->format('M j, Y') }}<small>{{ $row->last_login_at ? 'Signed in '.$row->last_login_at->diffForHumans() : 'Never signed in' }}</small></td>
+          <td class="nowrap">{{ $row->created_at->format('m/d/Y') }}<small>{{ $row->last_login_at ? 'Signed in '.$row->last_login_at->diffForHumans() : 'Never signed in' }}</small></td>
           <td class="actions"><div class="a-row-actions"><a class="a-btn ghost sm" href="{{ route('admin.users.show', $row) }}"><svg><use href="#ai-eye"></use></svg>View</a></div></td>
         </tr>
       @empty

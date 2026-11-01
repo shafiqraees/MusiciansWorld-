@@ -29,7 +29,7 @@
             <td class="num">{{ $rule->duration_minutes ? rtrim(rtrim(number_format($rule->duration_minutes / 60, 1), '0'), '.').' h' : '—' }}</td>
             <td class="num"><strong>{{ a_money($rule->price_cents) }}</strong></td>
             <td class="num">{{ $rule->duration_minutes ? a_money((int) round($rule->price_cents / ($rule->duration_minutes / 60))) : '—' }}</td>
-            <td class="nowrap">{{ $rule->effective_from?->format('M j, Y') ?? 'Now' }} → {{ $rule->effective_until?->format('M j, Y') ?? 'Open-ended' }}</td>
+            <td class="nowrap">{{ $rule->effective_from?->format('m/d/Y') ?? 'Now' }} → {{ $rule->effective_until?->format('m/d/Y') ?? 'Open-ended' }}</td>
             <td><span class="a-badge {{ $rule->is_active ? 'success' : 'neutral' }}">{{ $rule->is_active ? 'Active' : 'Hidden' }}</span></td>
             <td class="actions"><div class="a-row-actions"><button class="a-btn ghost icon sm" type="button" data-modal-open="price-{{ $rule->id }}" aria-label="Edit {{ $rule->name }}" title="Edit price"><svg><use href="#ai-pencil"></use></svg></button></div></td>
           </tr>

@@ -55,7 +55,7 @@ class PlatformTest extends TestCase
         $this->getJson(route('booking.availability', ['resource' => 'studio-a', 'year' => 2026, 'month' => 10]))
             ->assertOk()->assertJsonPath('resource', 'studio-a')->assertJsonPath('year', 2026)->assertJsonStructure(['days']);
         $this->getJson(route('booking.availability', ['resource' => 'studio-a', 'date' => '2026-10-05', 'duration' => 2, 'start' => 600]))
-            ->assertOk()->assertJsonPath('price', 80)->assertJsonStructure(['dayStatus', 'busy', 'slots', 'requested']);
+            ->assertOk()->assertJsonPath('price', 80)->assertJsonStructure(['dayStatus', 'busy', 'slots']);
         $this->getJson(route('membership.status'))
             ->assertOk()->assertJsonStructure(['max', 'taken', 'remaining'])->assertJsonPath('max', 50);
     }

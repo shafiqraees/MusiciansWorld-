@@ -35,7 +35,7 @@
         <div class="a-card-head"><div><h3>Recent bookings</h3></div><a class="a-link" href="{{ route('admin.bookings') }}">View booking desk →</a></div>
         <div class="a-list">
           @forelse($recentBookings as $booking)
-            <a class="a-list-row" href="{{ route('admin.bookings', ['search' => $booking->reference]) }}"><span class="a-avatar neutral">{{ strtoupper(substr($booking->customer_name, 0, 1)) }}</span><span><strong>{{ $booking->customer_name }} · {{ $booking->resource->name }}</strong><small>{{ $booking->starts_at->setTimezone($booking->resource->timezone)->format('M j, Y · g:i A') }} · {{ a_money($booking->total_cents) }}</small></span><x-admin.badge :status="$booking->payment_status" /></a>
+            <a class="a-list-row" href="{{ route('admin.bookings', ['search' => $booking->reference]) }}"><span class="a-avatar neutral">{{ strtoupper(substr($booking->customer_name, 0, 1)) }}</span><span><strong>{{ $booking->customer_name }} · {{ $booking->resource->name }}</strong><small>From {{ $booking->starts_at->setTimezone($booking->resource->timezone)->format('m/d/Y g:i A') }} to {{ $booking->ends_at->setTimezone($booking->resource->timezone)->format('m/d/Y g:i A') }} · {{ a_money($booking->total_cents) }}</small></span><x-admin.badge :status="$booking->payment_status" /></a>
           @empty <p class="a-empty">No bookings yet.</p> @endforelse
         </div>
       </section>

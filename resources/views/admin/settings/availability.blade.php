@@ -24,11 +24,11 @@
         <tr>
           <td><strong>{{ $hold->resource?->name }}</strong></td>
           <td><x-admin.badge :status="$hold->type" :label="$types[$hold->type] ?? a_label($hold->type)" /></td>
-          <td class="nowrap">{{ $hold->starts_at->setTimezone($tz)->format('D, M j, Y') }}<small>{{ $hold->starts_at->setTimezone($tz)->format('g:i A') }}</small></td>
-          <td class="nowrap">{{ $hold->ends_at->setTimezone($tz)->format('D, M j, Y') }}<small>{{ $hold->ends_at->setTimezone($tz)->format('g:i A') }}</small></td>
+          <td class="nowrap">{{ $hold->starts_at->setTimezone($tz)->format('m/d/Y') }}<small>{{ $hold->starts_at->setTimezone($tz)->format('g:i A') }}</small></td>
+          <td class="nowrap">{{ $hold->ends_at->setTimezone($tz)->format('m/d/Y') }}<small>{{ $hold->ends_at->setTimezone($tz)->format('g:i A') }}</small></td>
           <td class="num">{{ rtrim(rtrim(number_format($hold->starts_at->diffInMinutes($hold->ends_at) / 60, 1), '0'), '.') }} h</td>
           <td><small style="white-space:normal;max-width:360px">{{ $hold->reason }}</small></td>
-          <td class="nowrap">{{ $hold->created_at->format('M j, Y') }}</td>
+          <td class="nowrap">{{ $hold->created_at->format('m/d/Y') }}</td>
           <td class="actions"><div class="a-row-actions">
             @if($hold->ends_at->isFuture())
               <form method="post" action="{{ route('admin.holds.delete', $hold) }}" data-confirm="Remove this availability hold? Customers will be able to book this window again."> @csrf @method('DELETE')<button class="a-btn danger icon sm" type="submit" aria-label="Remove hold" title="Remove hold"><svg><use href="#ai-trash"></use></svg></button></form>

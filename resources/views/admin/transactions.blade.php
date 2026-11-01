@@ -68,12 +68,12 @@ $relatedLabel = function ($tx) {
   </div>
 
   <section class="a-card" data-tab-panel="ledger" data-tab-group="finance">
-    <div class="a-card-head"><div><h3>Transaction ledger</h3><p>{{ $from->format('M j, Y') }} – {{ $to->format('M j, Y') }}{{ $totals['pending'] ? ' · '.$totals['pending'].' pending' : '' }}{{ $totals['failed'] ? ' · '.$totals['failed'].' failed' : '' }}</p></div></div>
+    <div class="a-card-head"><div><h3>Transaction ledger</h3><p>{{ $from->format('m/d/Y') }} – {{ $to->format('m/d/Y') }}{{ $totals['pending'] ? ' · '.$totals['pending'].' pending' : '' }}{{ $totals['failed'] ? ' · '.$totals['failed'].' failed' : '' }}</p></div></div>
     <div class="a-table-wrap"><table class="a-table"><thead><tr><th>Transaction</th><th>Type</th><th>Direction</th><th>Account</th><th>Related</th><th>Reference</th><th>Status</th><th class="num">Amount</th></tr></thead><tbody>
       @forelse($transactions as $tx)
         <?php [$rel, $relSub] = $relatedLabel($tx); ?>
         <tr>
-          <td><strong>MWCN-{{ str_pad($tx->id, 6, '0', STR_PAD_LEFT) }}</strong><small>{{ $tx->created_at->format('M j, Y · g:i A') }}</small></td>
+          <td><strong>MWCN-{{ str_pad($tx->id, 6, '0', STR_PAD_LEFT) }}</strong><small>{{ $tx->created_at->format('m/d/Y g:i A') }}</small></td>
           <td>{{ \App\Support\Finance::label($tx->type) }}</td>
           <td><small style="font-size:12px">{{ \App\Support\Finance::party($tx->type) }}</small></td>
           <td>@if($tx->user)<a href="{{ route('admin.users.show', $tx->user) }}">{{ $tx->user->name }}</a><small>{{ $tx->user->email }}</small>@else<span class="a-sub">—</span>@endif</td>
@@ -95,7 +95,7 @@ $relatedLabel = function ($tx) {
       @forelse($events as $row)
         <?php $event = $row['event']; $s = $row['statement']; ?>
         <tr>
-          <td><strong>{{ $event->title }}</strong><small>{{ $event->reference }} · {{ $event->starts_at?->format('M j, Y') }} · <x-admin.badge :status="$event->status" /></small></td>
+          <td><strong>{{ $event->title }}</strong><small>{{ $event->reference }} · {{ $event->starts_at?->format('m/d/Y') }} · <x-admin.badge :status="$event->status" /></small></td>
           <td>@if($event->organizer)<a href="{{ route('admin.users.show', $event->organizer) }}">{{ $event->organizer->name }}</a>@else —@endif</td>
           <td class="num">{{ $s['tickets_sold'] }}<small>{{ $s['orders'] }} orders</small></td>
           <td class="num"><strong>{{ a_money($s['gross']) }}</strong></td>

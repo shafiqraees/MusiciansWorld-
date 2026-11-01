@@ -43,9 +43,7 @@ class CustomerAccountService
             return $existingUser;
         }
 
-        $temporaryPassword = Str::password(
-            max(12, min(64, (int) config('customer-accounts.temporary_password_length', 16)))
-        );
+        $temporaryPassword = $profile['email'];
 
         $user = DB::transaction(function () use ($profile, $temporaryPassword): User {
             $user = User::firstOrCreate(

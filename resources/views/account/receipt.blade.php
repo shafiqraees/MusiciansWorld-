@@ -4,7 +4,7 @@
 $related = $transaction->transactable;
 $reference = $related->reference ?? null;
 $subject = match (true) {
-    $related instanceof \App\Models\Booking => ($related->resource?->name ?? 'Booking').' · '.$related->starts_at?->timezone($related->resource?->timezone ?? 'America/Phoenix')->format('M j, Y g:i A'),
+    $related instanceof \App\Models\Booking => ($related->resource?->name ?? 'Booking').' · '.$related->starts_at?->timezone($related->resource?->timezone ?? 'America/Phoenix')->format('m/d/Y g:i A'),
     $related instanceof \App\Models\Order => 'Tickets'.($related->event ? ' · '.$related->event->title : ''),
     $related instanceof \App\Models\CustomerMembership => ($related->plan?->name ?? 'Membership').' membership',
     default => \App\Support\Finance::label($transaction->type),
@@ -16,7 +16,7 @@ $subject = match (true) {
   <div>
     <p class="kicker"><a href="{{ route('account.payments') }}" style="color:inherit">Payments &amp; Receipts</a></p>
     <h1>Receipt MWCN-{{ str_pad((string) $transaction->id, 6, '0', STR_PAD_LEFT) }}</h1>
-    <p>MusiciansWorld Creative Network · {{ $transaction->created_at->format('M j, Y g:i A') }}</p>
+    <p>MusiciansWorld Creative Network · {{ $transaction->created_at->format('m/d/Y g:i A') }}</p>
   </div>
   <div class="acct-head-actions acct-actions" style="margin:0">
     <a class="btn btn-ghost" href="{{ route('account.payments') }}">Back to payments</a>
@@ -67,7 +67,7 @@ $subject = match (true) {
     <h3>Booking</h3>
     <dl class="acct-dl">
       <div><dt>Space</dt><dd>{{ $related->resource?->name ?? '—' }}</dd></div>
-      <div><dt>When</dt><dd>{{ $related->starts_at?->timezone($related->resource?->timezone ?? 'America/Phoenix')->format('D, M j, Y · g:i A') }} – {{ $related->ends_at?->timezone($related->resource?->timezone ?? 'America/Phoenix')->format('g:i A T') }}</dd></div>
+      <div><dt>When</dt><dd>{{ $related->starts_at?->timezone($related->resource?->timezone ?? 'America/Phoenix')->format('m/d/Y g:i A') }} – {{ $related->ends_at?->timezone($related->resource?->timezone ?? 'America/Phoenix')->format('m/d/Y g:i A') }}</dd></div>
       <div><dt>Subtotal</dt><dd>{{ a_money($related->subtotal_cents) }}</dd></div>
       @if($related->discount_cents)<div><dt>Member discount</dt><dd>−{{ a_money($related->discount_cents) }}</dd></div>@endif
       <div><dt>Total</dt><dd>{{ a_money($related->total_cents) }}</dd></div>

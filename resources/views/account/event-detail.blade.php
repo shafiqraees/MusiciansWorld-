@@ -7,7 +7,7 @@
   <div>
     <p class="kicker"><a href="{{ route('account.events') }}" style="color:inherit">My Events</a> · {{ $event->reference }}</p>
     <h1>{{ $event->title }}</h1>
-    <p>{{ $event->starts_at?->timezone($tz)->format('l, F j, Y · g:i A T') }}{{ $event->ends_at ? ' – '.$event->ends_at->timezone($tz)->format('g:i A') : '' }} · {{ $event->venue_name ?: ($event->resource->name ?? a_label($event->location_type)) }}</p>
+    <p>{{ $event->starts_at?->timezone($tz)->format('m/d/Y g:i A') }}{{ $event->ends_at ? ' – '.$event->ends_at->timezone($tz)->format('g:i A') : '' }} · {{ $event->venue_name ?: ($event->resource->name ?? a_label($event->location_type)) }}</p>
   </div>
   <div class="acct-head-actions">
     {!! acct_badge($event->status) !!}
@@ -26,7 +26,7 @@
 <div class="acct-grid-2">
   <div class="acct-panel">
     <h2>Settlement statement</h2>
-    <p class="acct-lead">{{ $s['settlement'] ? 'Calculated by MWCN finance on '.$s['settlement']->updated_at->format('M j, Y').'.' : 'Live estimate from recorded ticket sales. MWCN finance finalizes the statement after the event completes.' }}</p>
+    <p class="acct-lead">{{ $s['settlement'] ? 'Calculated by MWCN finance on '.$s['settlement']->updated_at->format('m/d/Y').'.' : 'Live estimate from recorded ticket sales. MWCN finance finalizes the statement after the event completes.' }}</p>
     <div class="acct-flow">
       <div class="acct-flow-row"><div>Gross ticket revenue<span>Collected from attendees</span></div><strong>{{ a_money($s['gross']) }}</strong></div>
       <div class="acct-flow-row is-minus"><div>MWCN platform fee<span>{{ \App\Support\Finance::percent($s['platform_fee_bps']) }} — kept by MWCN</span></div><strong>−{{ a_money($s['platform_fee']) }}</strong></div>
@@ -41,7 +41,7 @@
       <div><dt>Payout status</dt><dd>{!! acct_badge($s['payout_status']) !!}</dd></div>
       <div><dt>Transfer reference</dt><dd>{{ $s['transfer_id'] ?: '—' }}</dd></div>
       @if($s['hold_reason'])<div><dt>Hold reason</dt><dd>{{ $s['hold_reason'] }}</dd></div>@endif
-      @if($s['paid_at'])<div><dt>Paid on</dt><dd>{{ $s['paid_at']->format('M j, Y') }}</dd></div>@endif
+      @if($s['paid_at'])<div><dt>Paid on</dt><dd>{{ $s['paid_at']->format('m/d/Y') }}</dd></div>@endif
     </dl>
   </div>
 
@@ -89,7 +89,7 @@
           @foreach($orders as $order)
             <?php $flow = \App\Support\Finance::orderBreakdown($order); ?>
             <tr>
-              <td>{{ $order->reference }}<small>{{ $order->created_at->format('M j, Y · g:i A') }}</small></td>
+              <td>{{ $order->reference }}<small>{{ $order->created_at->format('m/d/Y g:i A') }}</small></td>
               <td>{{ $order->buyer_name }}<small>{{ $order->buyer_email }}</small></td>
               <td>{{ $order->items->sum('quantity') }}<small>{{ $order->items->map(fn ($i) => $i->quantity.'× '.($i->ticketType?->name ?? 'Ticket'))->join(', ') }}</small></td>
               <td>{!! acct_badge($order->payment_status) !!}</td>
@@ -118,7 +118,7 @@
         <tbody>
           @foreach($ledger as $tx)
             <tr>
-              <td>{{ $tx->created_at->format('M j, Y · g:i A') }}</td>
+              <td>{{ $tx->created_at->format('m/d/Y g:i A') }}</td>
               <td>{{ \App\Support\Finance::label($tx->type) }}<small>MWCN-{{ str_pad($tx->id, 6, '0', STR_PAD_LEFT) }}</small></td>
               <td><small style="font-size:.85rem">{{ \App\Support\Finance::party($tx->type) }}</small></td>
               <td>{{ $tx->transactable->reference ?? ($orders->firstWhere('id', $tx->transactable_id)?->reference ?? '—') }}</td>

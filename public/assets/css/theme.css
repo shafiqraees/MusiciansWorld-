@@ -110,7 +110,7 @@
 }
 @media (min-width: 900px) {
   .home-search {
-    grid-template-columns: 1.15fr 1fr 1.1fr 0.9fr auto;
+    grid-template-columns: 0.9fr 1.25fr 1.25fr 0.85fr auto;
     align-items: stretch;
   }
 }
@@ -145,6 +145,10 @@
   font-size: 15px;
   font-weight: 600;
   min-height: 28px;
+}
+.home-range-field input[type="time"] {
+  margin-top: 2px;
+  font-size: 13px;
 }
 .home-search-field input:focus,
 .home-search-field select:focus {

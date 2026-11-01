@@ -22,7 +22,7 @@
             <td>@if($setting->type === 'boolean')<span class="a-badge {{ filter_var($setting->value, FILTER_VALIDATE_BOOLEAN) ? 'success' : 'neutral' }}">{{ filter_var($setting->value, FILTER_VALIDATE_BOOLEAN) ? 'Enabled' : 'Disabled' }}</span>@elseif($setting->type === 'json')<code class="a-code">{{ str($setting->value)->limit(80) }}</code>@else<strong>{{ $setting->value ?? '—' }}</strong>@if(str_ends_with($setting->key, '.bps') && is_numeric($setting->value))<small>= {{ $setting->value / 100 }}%</small>@endif @endif</td>
             <td>{{ $types[$setting->type] ?? $setting->type }}</td>
             <td><span class="a-badge plain {{ $setting->is_public ? 'info' : 'neutral' }}">{{ $setting->is_public ? 'Public' : 'Internal' }}</span></td>
-            <td class="nowrap">{{ $setting->updated_at?->format('M j, Y') }}<small>{{ $setting->updated_at?->diffForHumans() }}</small></td>
+            <td class="nowrap">{{ $setting->updated_at?->format('m/d/Y') }}<small>{{ $setting->updated_at?->diffForHumans() }}</small></td>
             <td class="actions"><div class="a-row-actions"><button class="a-btn ghost icon sm" type="button" data-modal-open="setting-{{ $setting->id }}" aria-label="Edit {{ $setting->key }}" title="Edit setting"><svg><use href="#ai-pencil"></use></svg></button></div></td>
           </tr>
         @endforeach

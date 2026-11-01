@@ -45,7 +45,7 @@
       <div class="acct-item-top">
         <div>
           <strong><a href="{{ route('account.events.show', $event) }}">{{ $event->title }}</a></strong>
-          <span>{{ $event->reference }} · {{ $event->starts_at?->timezone($tz)->format('D, M j, Y · g:i A T') }} · {{ $event->venue_name ?: ($event->resource->name ?? a_label($event->location_type)) }}</span>
+          <span>{{ $event->reference }} · {{ $event->starts_at?->timezone($tz)->format('m/d/Y g:i A') }} · {{ $event->venue_name ?: ($event->resource->name ?? a_label($event->location_type)) }}</span>
         </div>
         <div class="acct-pills">{!! acct_badge($event->status) !!} {!! acct_badge($s['payout_status'], 'Payout: '.a_label($s['payout_status'])) !!}</div>
       </div>
