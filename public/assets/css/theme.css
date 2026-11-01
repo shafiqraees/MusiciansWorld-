@@ -146,9 +146,95 @@
   font-weight: 600;
   min-height: 28px;
 }
-.home-range-field input[type="time"] {
-  margin-top: 2px;
+.home-picker-btn {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  border: 0;
+  background: transparent;
+  color: #12121c;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+.home-picker-btn strong {
+  font-size: 15px;
+  font-weight: 700;
+}
+.home-picker-btn small {
   font-size: 13px;
+  font-weight: 600;
+  color: #5b6478;
+}
+.home-cal {
+  position: fixed;
+  z-index: 90;
+  width: min(320px, calc(100vw - 24px));
+  padding: 14px;
+  border-radius: 16px;
+  background: #fff;
+  color: #12121c;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+}
+.home-cal-head,
+.home-cal-time {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.home-cal-head button,
+.home-cal-done {
+  border: 0;
+  background: transparent;
+  color: #12121c;
+  cursor: pointer;
+  font-weight: 700;
+}
+.home-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-top: 10px;
+  text-align: center;
+}
+.home-cal-grid span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #5b6478;
+}
+.home-cal-grid button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #12121c;
+  cursor: pointer;
+  font-weight: 650;
+}
+.home-cal-grid button.is-on {
+  background: #12121c;
+  color: #fff;
+}
+.home-cal-grid button:disabled {
+  color: #c5cad6;
+  cursor: default;
+}
+.home-cal-time {
+  margin-top: 12px;
+}
+.home-cal-time select,
+.home-cal-done {
+  min-height: 36px;
+  border-radius: 8px;
+  background: #f4f6ff;
+  padding: 0 10px;
+}
+.home-cal-done {
+  border: 0;
 }
 .home-search-field input:focus,
 .home-search-field select:focus {

@@ -49,16 +49,24 @@ $slides = [
         <span>Where</span>
         <input value="<?= e($SITE["location"]) ?>" readonly />
       </label>
-      <label class="home-search-field home-range-field" id="home-from-wrap">
+      <div class="home-search-field home-range-field" id="home-from-wrap">
         <span>From</span>
-        <input type="text" name="from_date" inputmode="numeric" placeholder="MM/DD/YYYY" pattern="\d{2}/\d{2}/\d{4}" value="<?= e($rangeStart->format("m/d/Y")) ?>" />
-        <input type="time" name="from_time" step="1800" value="<?= e($rangeStart->format("H:i")) ?>" />
-      </label>
-      <label class="home-search-field home-range-field" id="home-to-wrap">
+        <button type="button" class="home-picker-btn" data-picker="from">
+          <strong><?= e($rangeStart->format("m/d/Y")) ?></strong>
+          <small><?= e($rangeStart->format("g:i A")) ?></small>
+        </button>
+        <input type="hidden" name="from_date" value="<?= e($rangeStart->format("m/d/Y")) ?>" />
+        <input type="hidden" name="from_time" value="<?= e($rangeStart->format("H:i")) ?>" />
+      </div>
+      <div class="home-search-field home-range-field" id="home-to-wrap">
         <span>To</span>
-        <input type="text" name="to_date" inputmode="numeric" placeholder="MM/DD/YYYY" pattern="\d{2}/\d{2}/\d{4}" value="<?= e($rangeEnd->format("m/d/Y")) ?>" />
-        <input type="time" name="to_time" step="1800" value="<?= e($rangeEnd->format("H:i")) ?>" />
-      </label>
+        <button type="button" class="home-picker-btn" data-picker="to">
+          <strong><?= e($rangeEnd->format("m/d/Y")) ?></strong>
+          <small><?= e($rangeEnd->format("g:i A")) ?></small>
+        </button>
+        <input type="hidden" name="to_date" value="<?= e($rangeEnd->format("m/d/Y")) ?>" />
+        <input type="hidden" name="to_time" value="<?= e($rangeEnd->format("H:i")) ?>" />
+      </div>
       <label class="home-search-field">
         <span>Space</span>
         <select name="space" id="home-space">
