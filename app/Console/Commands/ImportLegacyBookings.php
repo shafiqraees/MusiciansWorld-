@@ -11,20 +11,22 @@ use Illuminate\Console\Command;
 class ImportLegacyBookings extends Command
 {
     protected $signature = 'mwcn:import-bookings {file}';
+
     protected $description = 'Import Phase 1 JSON bookings into the connected booking database';
 
     public function handle(): int
     {
         $file = $this->argument('file');
-        if (!is_file($file)) {
+        if (! is_file($file)) {
             $this->error('Booking file not found.');
+
             return self::FAILURE;
         }
         $rows = json_decode(file_get_contents($file), true)['bookings'] ?? [];
         $resource = Resource::where('slug', 'studio-a')->firstOrFail();
         $count = 0;
         foreach ($rows as $row) {
-            $starts = CarbonImmutable::parse($row['date'], $resource->timezone)->startOfDay()->addMinutes((int) $row['start'])->utc();
+            $starts = CarbonImmutable::parse($row['date'], $resource->timezone)->startOfDay()->addMinutes((int) $row['start']);
             Booking::updateOrCreate(
                 ['reference' => $row['id']],
                 [
@@ -50,6 +52,7 @@ class ImportLegacyBookings extends Command
             $count++;
         }
         $this->info("Imported {$count} bookings.");
+
         return self::SUCCESS;
     }
 }

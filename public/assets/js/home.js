@@ -57,8 +57,7 @@
 
   function clockLabel(value) {
     const [h, m] = String(value).split(":").map(Number);
-    const ampm = h >= 12 ? "PM" : "AM";
-    return (h % 12 || 12) + ":" + pad(m) + " " + ampm;
+    return pad(h) + ":" + pad(m);
   }
 
   function timeChoices() {
@@ -217,8 +216,18 @@
       return;
     }
     const data = new FormData(form);
+    let toDate = String(data.get("to_date") || "");
+    const toTime = String(data.get("to_time") || "");
+    const fromTime = String(data.get("from_time") || "");
+    const toHour = Number(toTime.slice(0, 2));
+    const fromHour = Number(fromTime.slice(0, 2));
+    if (toDate === String(data.get("from_date") || "") && toHour < 9 && fromHour >= 9) {
+      const [month, day, year] = toDate.split("/").map(Number);
+      const next = new Date(year, month - 1, day + 1);
+      toDate = pad(next.getMonth() + 1) + "/" + pad(next.getDate()) + "/" + next.getFullYear();
+    }
     const from = stamp(data.get("from_date"), data.get("from_time"));
-    const to = stamp(data.get("to_date"), data.get("to_time"));
+    const to = stamp(toDate, toTime);
     if (!from || !to) return;
     window.location.href = base + "/book?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to);
   });

@@ -53,7 +53,7 @@ $slides = [
         <span>From</span>
         <button type="button" class="home-picker-btn" data-picker="from">
           <strong><?= e($rangeStart->format("m/d/Y")) ?></strong>
-          <small><?= e($rangeStart->format("g:i A")) ?></small>
+          <small><?= e($rangeStart->format("H:i")) ?></small>
         </button>
         <input type="hidden" name="from_date" value="<?= e($rangeStart->format("m/d/Y")) ?>" />
         <input type="hidden" name="from_time" value="<?= e($rangeStart->format("H:i")) ?>" />
@@ -62,7 +62,7 @@ $slides = [
         <span>To</span>
         <button type="button" class="home-picker-btn" data-picker="to">
           <strong><?= e($rangeEnd->format("m/d/Y")) ?></strong>
-          <small><?= e($rangeEnd->format("g:i A")) ?></small>
+          <small><?= e($rangeEnd->format("H:i")) ?></small>
         </button>
         <input type="hidden" name="to_date" value="<?= e($rangeEnd->format("m/d/Y")) ?>" />
         <input type="hidden" name="to_time" value="<?= e($rangeEnd->format("H:i")) ?>" />

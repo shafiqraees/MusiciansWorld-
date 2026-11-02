@@ -29,7 +29,7 @@ $headerAction = auth()->check()
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="<?= e(url("assets/css/app.css")) ?>?v=20260909e" />
-  <link rel="stylesheet" href="<?= e(url("assets/css/theme.css")) ?>?v=20260909e" />
+  <link rel="stylesheet" href="<?= e(url("assets/css/theme.css")) ?>?v=20261102e" />
   <link rel="stylesheet" href="<?= e(url("assets/css/fix.css")) ?>?v=20260909e" />
   <link rel="stylesheet" href="<?= e(url("assets/css/phase2.css")) ?>?v=20261007h" />
   <?php if (!empty($GLOBALS["page_styles"])): foreach ($GLOBALS["page_styles"] as $href): ?>

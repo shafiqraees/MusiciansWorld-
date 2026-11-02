@@ -14,9 +14,7 @@
     const wrapped = ((minutes % (24 * 60)) + 24 * 60) % (24 * 60);
     const h = Math.floor(wrapped / 60);
     const m = wrapped % 60;
-    const ampm = h >= 12 ? "PM" : "AM";
-    const hr = h % 12 || 12;
-    return hr + ":" + String(m).padStart(2, "0") + " " + ampm;
+    return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
   }
 
   function addDays(iso, days) {
@@ -40,12 +38,6 @@
     return date + "T" + hh + ":" + mm;
   }
 
-  function formatUs(dateIso, minutes) {
-    const [date, time] = toStamp(dateIso, minutes).split("T");
-    const [y, m, d] = date.split("-");
-    return m + "/" + d + "/" + y + " " + formatClock(Number(time.slice(0, 2)) * 60 + Number(time.slice(3)));
-  }
-
   function parseStamp(value) {
     const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/.exec(value || "");
     if (!match) return null;
@@ -65,11 +57,19 @@
   const startDate = /^\d{4}-\d{2}-\d{2}$/.test(qDate) && qDate >= today ? qDate : today;
   const [ty, tm] = startDate.split("-").map(Number);
 
-  function minutesOn(baseDate, parsed) {
+  function minutesOnDay(isoStamp, date) {
+    const parsed = parseStamp(isoStamp);
     if (!parsed) return null;
-    if (parsed.date === baseDate) return parsed.minutes < 9 * 60 ? parsed.minutes + 1440 : parsed.minutes;
-    if (parsed.date === addDays(baseDate, 1) && parsed.minutes <= 2 * 60) return parsed.minutes + 1440;
+    if (parsed.date === date) return parsed.minutes;
+    if (parsed.date === addDays(date, 1) && parsed.minutes <= 2 * 60) return parsed.minutes + 1440;
     return null;
+  }
+
+  function labelIso(iso) {
+    const parsed = parseStamp(iso);
+    if (!parsed) return "";
+    const [y, m, d] = parsed.date.split("-");
+    return m + "/" + d + "/" + y + " " + formatClock(parsed.minutes);
   }
 
   const state = {
@@ -77,8 +77,7 @@
     m: tm,
     days: {},
     date: startDate,
-    from: minutesOn(startDate, fromQuery),
-    to: minutesOn(startDate, toQuery),
+    anchor: null,
     fromIso: fromQuery ? params.get("from").slice(0, 16) : "",
     toIso: toQuery ? params.get("to").slice(0, 16) : "",
     slots: [],
@@ -101,16 +100,6 @@
     });
   }
 
-  function syncRangeFromSlots() {
-    if (state.from == null || state.to == null || state.to <= state.from) {
-      state.fromIso = state.from == null ? "" : toStamp(state.date, state.from);
-      state.toIso = "";
-      return;
-    }
-    state.fromIso = toStamp(state.date, state.from);
-    state.toIso = toStamp(state.date, state.to);
-  }
-
   async function loadMonth() {
     const query = new URLSearchParams({ resource: "studio-a", year: String(state.y), month: String(state.m) });
     const res = await fetch(availabilityUrl + "?" + query.toString(), { headers: { Accept: "application/json" } });
@@ -120,7 +109,6 @@
   }
 
   async function loadDay() {
-    syncRangeFromSlots();
     const q = new URLSearchParams({ resource: "studio-a", date: state.date });
     if (state.fromIso && state.toIso) {
       q.set("from", state.fromIso);
@@ -183,7 +171,7 @@
     state.busy = false;
     if (!res.ok) {
       state.error = data.error || "Could not book that time.";
-      state.step = "details";
+      state.step = "confirm";
       render();
       return;
     }
@@ -200,6 +188,12 @@
     if (st === "full") return "day-full";
     if (st === "partial") return "day-partial";
     return "day-available";
+  }
+
+  function dayInRange(iso) {
+    const fromDate = (state.fromIso || "").slice(0, 10);
+    const toDate = (state.toIso || "").slice(0, 10);
+    return Boolean(fromDate && toDate && iso >= fromDate && iso <= toDate);
   }
 
   function renderCalendar() {
@@ -226,9 +220,10 @@
               const iso = `${state.y}-${String(state.m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
               const st = iso < today ? "unavailable" : state.days[iso] || "available";
               const selected = iso === state.date;
+              const inRange = dayInRange(iso);
               const blocked = st === "unavailable";
               const [yy, mm, dd] = iso.split("-");
-              return `<button type="button" ${blocked ? "disabled" : ""} data-iso="${iso}" aria-pressed="${selected}" aria-label="${mm}/${dd}/${yy}, ${st}" class="aspect-square text-sm ${dayClass(st, selected)}">${d}</button>`;
+              return `<button type="button" ${blocked ? "disabled" : ""} data-iso="${iso}" aria-pressed="${selected || inRange}" aria-label="${mm}/${dd}/${yy}, ${st}" class="aspect-square text-sm ${dayClass(st, selected)} ${inRange ? "day-in-range" : ""}">${d}</button>`;
             })
             .join("")}
         </div>
@@ -241,25 +236,43 @@
       </div>`;
   }
 
-  function slotClass(minutes) {
-    if (state.from === minutes || state.to === minutes) return "min-h-11 px-1 py-2 text-xs bg-mark text-mark-ink";
-    if (state.from != null && state.to != null && minutes > state.from && minutes < state.to) {
-      return "min-h-11 px-1 py-2 text-xs bg-mark/30";
+  function selectionOnDay() {
+    if (state.anchor != null) return { from: state.anchor, to: null };
+    const fromDate = (state.fromIso || "").slice(0, 10);
+    const toDate = (state.toIso || "").slice(0, 10);
+    let from = minutesOnDay(state.fromIso, state.date);
+    let to = minutesOnDay(state.toIso, state.date);
+    if (fromDate && toDate && state.date > fromDate && state.date < toDate) {
+      from = 9 * 60;
+      to = 26 * 60;
+    } else if (from != null && to == null && toDate > fromDate) {
+      to = 26 * 60;
+    } else if (to != null && from == null && fromDate < toDate) {
+      from = 9 * 60;
     }
+    return { from, to };
+  }
+
+  function slotIsSelected(minutes) {
+    const selected = selectionOnDay();
+    if (selected.from == null) return false;
+    if (selected.to == null) return minutes === selected.from;
+    return minutes >= selected.from && minutes <= selected.to;
+  }
+
+  function slotClass(minutes) {
+    if (slotIsSelected(minutes)) return "min-h-11 px-1 py-2 text-xs bg-mark text-mark-ink";
     return "min-h-11 px-1 py-2 text-xs border border-line hover:border-text";
   }
 
   function rangeLabel() {
-    if (state.quote && state.quote.from && state.quote.to) {
-      return `<p><strong>From</strong> ${escapeHtml(state.quote.from)}</p><p class="mt-1"><strong>To</strong> ${escapeHtml(state.quote.to)}</p>`;
-    }
-    if (state.from == null) return `<p class="text-dim">Select a start slot, then an end slot.</p>`;
-    return `<p><strong>From</strong> ${formatUs(state.date, state.from)}</p><p class="mt-1"><strong>To</strong> ${state.to == null ? "Select an end slot" : formatUs(state.date, state.to)}</p>`;
+    if (!state.fromIso) return `<p class="text-dim">Select a start slot, then an end slot.</p>`;
+    return `<p><strong>From</strong> ${labelIso(state.fromIso)}</p><p class="mt-1"><strong>To</strong> ${state.toIso ? labelIso(state.toIso) : "Select an end slot"}</p>`;
   }
 
   function renderPanel() {
     const blocked = state.quote && state.quote.available === false;
-    if (state.step === "details") {
+    if (state.step === "details" || state.step === "confirm") {
       return `
       <div class="book-sheet">
         <p class="kicker">Review before payment</p>
@@ -280,7 +293,7 @@
           ${state.error ? `<p class="text-sm text-danger">${escapeHtml(state.error)}</p>` : ""}
           <div class="flex gap-2 pt-1">
             <button class="btn btn-ghost flex-1" data-act="back" type="button">Back</button>
-            <button class="btn btn-mark flex-1" type="submit" ${state.busy ? "disabled" : ""}>${state.busy ? "Opening checkout…" : "Continue to payment"}</button>
+            <button class="btn btn-mark flex-1" type="submit">Continue to payment</button>
           </div>
         </form>
       </div>`;
@@ -297,17 +310,18 @@
         <div class="mt-2 grid max-h-64 grid-cols-2 gap-1 overflow-auto sm:grid-cols-3">
           ${state.slots
             .map((s) => {
-              const taken = !s.available && state.to !== s.start;
-              return `<button type="button" data-start="${s.start}" data-open="${s.available ? "1" : "0"}" aria-pressed="${state.from === s.start || state.to === s.start}" class="${slotClass(s.start)} ${taken ? "text-dim/50 line-through" : ""}">${s.label}</button>`;
+              const chosen = slotIsSelected(s.start);
+              const taken = !s.available && !chosen;
+              return `<button type="button" data-start="${s.start}" data-open="${s.available ? "1" : "0"}" aria-pressed="${chosen}" class="${slotClass(s.start)} ${taken ? "text-dim/50 line-through" : ""}">${formatClock(s.start)}</button>`;
             })
             .join("")}
         </div>
         ${
           blocked
-            ? `<p class="mt-4 border border-danger/40 bg-danger/10 p-3 text-sm">${escapeHtml(state.quote.status === "closed" ? "Studio A is closed between 2:00 AM and 9:00 AM." : "That range is unavailable. Choose two open slots.")}</p>`
+            ? `<p class="mt-4 border border-danger/40 bg-danger/10 p-3 text-sm">${escapeHtml(state.quote.status === "closed" ? "Studio A is closed between 02:00 and 09:00." : "That range is unavailable. Choose two open slots.")}</p>`
             : ""
         }
-        <button class="btn btn-mark mt-6 w-full" type="button" data-act="continue" ${state.from == null || state.to == null || blocked ? "disabled" : ""}>Review from and to</button>
+        <button class="btn btn-mark mt-6 w-full" type="button" data-act="continue" ${!state.fromIso || !state.toIso || !state.quote || blocked ? "disabled" : ""}>Review from and to</button>
       </div>`;
   }
 
@@ -321,11 +335,66 @@
     return escapeHtml(s).replace(/"/g, "&quot;");
   }
 
+  function confirmRow(label, value) {
+    return `<div class="book-confirm-row"><dt>${label}</dt><dd>${escapeHtml(value || "None")}</dd></div>`;
+  }
+
+  function renderConfirm() {
+    return `
+      <div class="book-modal" role="presentation">
+        <div class="book-modal-card" role="dialog" aria-modal="true" aria-labelledby="book-confirm-title">
+          <p class="kicker">Confirm before payment</p>
+          <h2 id="book-confirm-title" class="mt-2 text-lg font-semibold">Check these details</h2>
+          <p class="mt-2 text-sm text-dim">Payment uses exactly the times and contact details below.</p>
+          <dl class="book-confirm-list">
+            ${confirmRow("Space", "Studio A")}
+            ${confirmRow("Where", (window.MW && window.MW.locationLabel) || "")}
+            ${confirmRow("From", labelIso(state.fromIso))}
+            ${confirmRow("To", labelIso(state.toIso))}
+            ${confirmRow("Price", state.price == null ? "" : "$" + state.price)}
+            ${confirmRow("Name", state.name)}
+            ${confirmRow("Email", state.email)}
+            ${confirmRow("Phone", state.phone)}
+            ${confirmRow("Notes", state.notes)}
+          </dl>
+          ${state.error ? `<p class="text-sm text-danger">${escapeHtml(state.error)}</p>` : ""}
+          <div class="mt-5 flex gap-2">
+            <button class="btn btn-ghost flex-1" type="button" data-act="dismiss" ${state.busy ? "disabled" : ""}>Back</button>
+            <button class="btn btn-mark flex-1" type="button" data-act="pay" ${state.busy ? "disabled" : ""}>${state.busy ? "Opening checkout…" : "Confirm and pay"}</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
   function render() {
-    root.innerHTML = renderCalendar() + renderPanel();
+    root.innerHTML = renderCalendar() + renderPanel() + (state.step === "confirm" ? renderConfirm() : "");
+  }
+
+  function openConfirm() {
+    syncDetailsFromDom();
+    if (state.name.length < 2) {
+      state.error = "Name is required.";
+      state.step = "details";
+      render();
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(state.email)) {
+      state.error = "Enter a valid email address.";
+      state.step = "details";
+      render();
+      return;
+    }
+    state.error = "";
+    state.step = "confirm";
+    render();
   }
 
   root.addEventListener("click", (e) => {
+    if (e.target.classList && e.target.classList.contains("book-modal") && !state.busy) {
+      state.step = "details";
+      render();
+      return;
+    }
     const t = e.target.closest("button");
     if (!t || !root.contains(t)) return;
     if (t.dataset.cal === "prev") {
@@ -340,22 +409,23 @@
     }
     if (t.dataset.iso) {
       state.date = t.dataset.iso;
-      state.from = null;
-      state.to = null;
-      state.fromIso = "";
-      state.toIso = "";
-      state.quote = null;
+      state.anchor = null;
       loadDay();
       return;
     }
     if (t.dataset.start) {
       const picked = Number(t.dataset.start);
-      if (state.from == null || picked <= state.from) {
+      if (state.anchor == null || picked <= state.anchor) {
         if (t.dataset.open !== "1") return;
-        state.from = picked;
-        state.to = null;
+        state.anchor = picked;
+        state.fromIso = toStamp(state.date, picked);
+        state.toIso = "";
+        state.quote = null;
       } else {
-        state.to = picked;
+        state.fromIso = toStamp(state.date, state.anchor);
+        state.toIso = toStamp(state.date, picked);
+        state.anchor = null;
+        state.quote = null;
       }
       loadDay();
       return;
@@ -370,12 +440,28 @@
       render();
       return;
     }
+    if (t.dataset.act === "dismiss") {
+      if (state.busy) return;
+      state.step = "details";
+      render();
+      return;
+    }
+    if (t.dataset.act === "pay") {
+      confirm();
+    }
   });
 
   root.addEventListener("submit", (e) => {
     if (e.target && e.target.id === "booking-details") {
       e.preventDefault();
-      confirm();
+      openConfirm();
+    }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && state.step === "confirm" && !state.busy) {
+      state.step = "details";
+      render();
     }
   });
 

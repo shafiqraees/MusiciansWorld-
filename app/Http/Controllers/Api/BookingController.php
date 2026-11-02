@@ -47,11 +47,15 @@ class BookingController extends Controller
         $busy = $bookings->busyRanges($resource, $date);
         $slots = [];
         for ($time = OPEN_MIN; $time <= CLOSE_MIN; $time += SLOT_STEP) {
-            $isEndpoint = $time === CLOSE_MIN;
+            $open = $date >= phoenix_date_iso() && (
+                $time === CLOSE_MIN
+                    ? is_range_open($busy, $time - SLOT_STEP, $time)
+                    : is_range_open($busy, $time, $time + SLOT_STEP)
+            );
             $slots[] = [
                 'start' => $time,
                 'label' => format_clock($time),
-                'available' => $date >= phoenix_date_iso() && ($isEndpoint || is_range_open($busy, $time, $time + SLOT_STEP)),
+                'available' => $open,
             ];
         }
         $price = intdiv($bookings->price($resource, $duration), 100);
@@ -64,8 +68,8 @@ class BookingController extends Controller
                 'available' => $status === 'ok',
                 'status' => $status,
                 'price' => $status === 'invalid_range' ? null : intdiv($bookings->priceForMinutes($resource, (int) $rangeStart->diffInMinutes($rangeEnd)), 100),
-                'from' => $rangeStart->format('m/d/Y g:i A'),
-                'to' => $rangeEnd->format('m/d/Y g:i A'),
+                'from' => $rangeStart->format('m/d/Y H:i'),
+                'to' => $rangeEnd->format('m/d/Y H:i'),
             ];
             if ($quote['price'] !== null) {
                 $price = $quote['price'];
@@ -131,13 +135,13 @@ class BookingController extends Controller
             $session = $stripe->bookingCheckout($booking->load('resource'));
             $booking->update(['stripe_checkout_session_id' => $session->id]);
 
-            $localStart = $booking->starts_at->setTimezone($booking->resource->timezone);
-            $localEnd = $booking->ends_at->setTimezone($booking->resource->timezone);
+            $localStart = $booking->starts_at->copy()->timezone($booking->resource->timezone);
+            $localEnd = $booking->ends_at->copy()->timezone($booking->resource->timezone);
 
             return response()->json([
                 'id' => $booking->reference,
-                'from' => $localStart->format('m/d/Y g:i A'),
-                'to' => $localEnd->format('m/d/Y g:i A'),
+                'from' => $localStart->format('m/d/Y H:i'),
+                'to' => $localEnd->format('m/d/Y H:i'),
                 'date' => $localStart->format('Y-m-d'),
                 'start' => (int) ($booking->meta['legacy_start_minutes'] ?? ($localStart->hour * 60 + $localStart->minute)),
                 'durationHours' => $booking->meta['duration_hours'] ?? null,

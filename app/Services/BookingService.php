@@ -23,8 +23,8 @@ class BookingService
 
         $bookings = Booking::query()
             ->where('resource_id', $resource->id)
-            ->where('starts_at', '<', $dayEnd->utc())
-            ->where('ends_at', '>', $dayStart->utc())
+            ->where('starts_at', '<', $dayEnd)
+            ->where('ends_at', '>', $dayStart)
             ->where(function ($query) {
                 $query->whereIn('status', ['confirmed', 'paid', 'admin_hold'])
                     ->orWhere(function ($pending) {
@@ -36,15 +36,15 @@ class BookingService
 
         $blocks = AvailabilityBlock::query()
             ->where('resource_id', $resource->id)
-            ->where('starts_at', '<', $dayEnd->utc())
-            ->where('ends_at', '>', $dayStart->utc())
+            ->where('starts_at', '<', $dayEnd)
+            ->where('ends_at', '>', $dayStart)
             ->get(['starts_at', 'ends_at']);
 
         $events = Event::query()
             ->where('resource_id', $resource->id)
             ->whereIn('status', ['approved', 'published', 'completed', 'closeout'])
-            ->where('starts_at', '<', $dayEnd->utc())
-            ->where('ends_at', '>', $dayStart->utc())
+            ->where('starts_at', '<', $dayEnd)
+            ->where('ends_at', '>', $dayStart)
             ->get(['starts_at', 'ends_at', 'setup_minutes', 'teardown_minutes'])
             ->map(function ($event) {
                 $event->starts_at = $event->starts_at->copy()->subMinutes($event->setup_minutes);
@@ -113,15 +113,27 @@ class BookingService
             return 'invalid_range';
         }
 
-        for ($cursor = $start; $cursor->lessThan($end); $cursor = $cursor->addMinutes(SLOT_STEP)) {
-            $minutes = $cursor->hour * 60 + $cursor->minute;
-            $duringOpenHours = $minutes >= OPEN_MIN || $minutes < (CLOSE_MIN % (24 * 60));
-            if (! $duringOpenHours) {
-                return 'closed';
+        if ($start->toDateString() === $end->toDateString()) {
+            for ($cursor = $start; $cursor->lessThan($end); $cursor = $cursor->addMinutes(SLOT_STEP)) {
+                if (! $this->instantIsOpen($cursor)) {
+                    return 'closed';
+                }
             }
+        } elseif (! $this->instantIsOpen($start) || ! $this->instantIsOpen($end, allowExactClose: true)) {
+            return 'closed';
         }
 
         return $this->rangeIsFree($resource, $start, $end) ? 'ok' : 'unavailable';
+    }
+
+    private function instantIsOpen(CarbonImmutable $moment, bool $allowExactClose = false): bool
+    {
+        $minutes = $moment->hour * 60 + $moment->minute;
+        if ($minutes >= OPEN_MIN || $minutes < (CLOSE_MIN % (24 * 60))) {
+            return true;
+        }
+
+        return $allowExactClose && $minutes === (CLOSE_MIN % (24 * 60));
     }
 
     public function holdStudio(array $data, User $user): Booking
@@ -157,8 +169,8 @@ class BookingService
                 'user_id' => $user->id,
                 'resource_id' => $resource->id,
                 'service_type' => 'studio_booking',
-                'starts_at' => $start->utc(),
-                'ends_at' => $end->utc(),
+                'starts_at' => $start,
+                'ends_at' => $end,
                 'hold_expires_at' => now()->addMinutes(PlatformSetting::valueOf('checkout_hold_minutes', 45)),
                 'status' => 'pending_payment',
                 'payment_status' => 'pending',
@@ -172,8 +184,8 @@ class BookingService
                 'meta' => [
                     'legacy_start_minutes' => $legacyStart,
                     'duration_hours' => $durationHours,
-                    'from' => $start->format('m/d/Y g:i A'),
-                    'to' => $end->format('m/d/Y g:i A'),
+                    'from' => $start->format('m/d/Y H:i'),
+                    'to' => $end->format('m/d/Y H:i'),
                 ],
             ]);
         }, 3);
@@ -183,21 +195,21 @@ class BookingService
     {
         $bookingQuery = Booking::query()
             ->where('resource_id', $resource->id)
-            ->where('starts_at', '<', $end->utc())
-            ->where('ends_at', '>', $start->utc())
+            ->where('starts_at', '<', $end)
+            ->where('ends_at', '>', $start)
             ->where(function ($query) {
                 $query->whereIn('status', ['confirmed', 'paid', 'admin_hold'])
                     ->orWhere(fn ($pending) => $pending->whereIn('status', ['hold', 'pending_payment'])->where('hold_expires_at', '>', now()));
             });
         $blockQuery = AvailabilityBlock::query()
             ->where('resource_id', $resource->id)
-            ->where('starts_at', '<', $end->utc())
-            ->where('ends_at', '>', $start->utc());
+            ->where('starts_at', '<', $end)
+            ->where('ends_at', '>', $start);
         $eventQuery = Event::query()
             ->where('resource_id', $resource->id)
             ->whereIn('status', ['approved', 'published', 'completed', 'closeout'])
-            ->where('starts_at', '<', $end->utc())
-            ->where('ends_at', '>', $start->utc());
+            ->where('starts_at', '<', $end)
+            ->where('ends_at', '>', $start);
 
         if ($lock) {
             $bookingQuery->lockForUpdate();

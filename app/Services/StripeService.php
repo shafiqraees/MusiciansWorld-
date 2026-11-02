@@ -17,7 +17,7 @@ class StripeService
 
     public function bookingCheckout(Booking $booking): Session
     {
-        $local = $booking->starts_at->setTimezone($booking->resource->timezone);
+        $local = $booking->starts_at->copy()->timezone($booking->resource->timezone);
 
         return $this->client()->checkout->sessions->create([
             'mode' => 'payment',
@@ -31,7 +31,7 @@ class StripeService
                     'currency' => $this->checkoutCurrency($booking->currency),
                     'unit_amount' => $booking->total_cents,
                     'product_data' => [
-                        'name' => 'Studio A — '.$local->format('m/d/Y g:i A').' – '.$booking->ends_at->setTimezone($booking->resource->timezone)->format('m/d/Y g:i A'),
+                        'name' => 'Studio A — '.$local->format('m/d/Y H:i').' – '.$booking->ends_at->copy()->timezone($booking->resource->timezone)->format('m/d/Y H:i'),
                         'description' => 'MusiciansWorld Studio A booking',
                     ],
                 ],
