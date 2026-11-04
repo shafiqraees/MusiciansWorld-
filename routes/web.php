@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\Admin\CouponController;
 use App\Http\Controllers\Admin\FinanceController;
 use App\Http\Controllers\Admin\MembershipController;
 use App\Http\Controllers\Admin\SettingsController;
@@ -144,6 +145,11 @@ Route::middleware(['auth', 'staff'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/availability-holds', [SettingsController::class, 'createHold'])->middleware('permission:bookings.manage')->name('holds.create');
     Route::delete('/availability-holds/{hold}', [SettingsController::class, 'deleteHold'])->middleware('permission:bookings.manage')->name('holds.delete');
     Route::get('/settings/integrations', [SettingsController::class, 'integrations'])->middleware('permission:settings.manage')->name('settings.integrations');
+
+    Route::get('/coupons', [CouponController::class, 'index'])->middleware('permission:settings.manage')->name('coupons');
+    Route::post('/coupons/rates', [CouponController::class, 'updateRates'])->middleware('permission:settings.manage')->name('coupons.rates');
+    Route::post('/coupons', [CouponController::class, 'store'])->middleware('permission:settings.manage')->name('coupons.store');
+    Route::patch('/coupons/{coupon}', [CouponController::class, 'update'])->middleware('permission:settings.manage')->name('coupons.update');
 
     // Users: shared listing for all / customers / admins / staff, plus the detail page
     Route::get('/users', [UserController::class, 'index'])->middleware('permission:users.view')->name('users');

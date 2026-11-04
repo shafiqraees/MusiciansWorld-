@@ -5,7 +5,7 @@
   <div>
     <p class="kicker">Connected customer platform</p>
     <h1>Welcome, {{ $user->name }}</h1>
-    <p>Account #{{ $user->id }} · member since {{ $user->created_at->format('m/d/Y') }}. Everything you do with MWCN — studio time, DJ School, tickets, events and payments — is managed from the left menu.</p>
+    <p>Account #{{ $user->id }} · member since {{ $user->created_at->format('m/d/Y') }}. Your Studio A rate is {{ a_money($studioHourlyCents) }} an hour{{ $studioRateIsFirstTime ? ' on your first booking' : '' }}.</p>
   </div>
   <div class="acct-head-actions">
     <a class="btn btn-ghost" href="/book">Book Studio A</a>
@@ -19,6 +19,8 @@
   <a class="acct-stat" href="{{ route('account.tickets') }}"><small>Upcoming tickets</small><strong>{{ $upcomingTickets->count() }}</strong><span>{{ $upcomingTickets->first()?->event?->title ?? 'No upcoming events' }}</span></a>
   <a class="acct-stat is-ok" href="{{ route('account.payments') }}"><small>Total paid</small><strong>{{ a_money($spent) }}</strong><span>{{ $recentReceipts->count() }} recent receipt{{ $recentReceipts->count() === 1 ? '' : 's' }}</span></a>
 </div>
+
+@include('account.partials.coupon-activity')
 
 <div class="acct-grid-2">
   <div class="acct-panel">

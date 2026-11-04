@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AvailabilityBlock;
 use App\Models\Booking;
+use App\Models\Coupon;
 use App\Models\Event;
 use App\Models\PlatformSetting;
 use App\Models\PricingRule;
@@ -15,6 +16,8 @@ use RuntimeException;
 
 class BookingService
 {
+    public function __construct(private ClientPricing $pricing) {}
+
     public function busyRanges(Resource $resource, string $date): array
     {
         $timezone = $resource->timezone;
@@ -110,7 +113,7 @@ class BookingService
             return 'invalid_range';
         }
         if ($start->lessThan(CarbonImmutable::now($resource->timezone)->startOfMinute())) {
-            return 'invalid_range';
+            return 'past';
         }
 
         if ($start->toDateString() === $end->toDateString()) {
@@ -148,7 +151,20 @@ class BookingService
                     throw new RuntimeException(strtoupper($status));
                 }
                 $minutes = (int) $start->diffInMinutes($end);
-                $price = $this->priceForMinutes($resource, $minutes);
+                $quote = $this->pricing->quote($minutes, $data['email'] ?? null, $data['phone'] ?? null, $user->id, $data['coupon'] ?? null);
+                if ($quote['coupon_error']) {
+                    throw new RuntimeException('COUPON:'.$quote['message']);
+                }
+                if ($quote['coupon_applied'] && $quote['coupon']) {
+                    $locked = Coupon::query()->whereKey($quote['coupon']->id)->lockForUpdate()->first();
+                    $again = $this->pricing->inspect($locked?->code ?? '', 'studio_a', $data['email'] ?? null, $data['phone'] ?? null, $user->id);
+                    if (! $again['ok']) {
+                        throw new RuntimeException('COUPON:'.$again['message']);
+                    }
+                }
+                $price = $quote['total_cents'];
+                $subtotal = $quote['subtotal_cents'];
+                $discount = $quote['discount_cents'];
                 $legacyStart = $start->hour * 60 + $start->minute;
                 $durationHours = round($minutes / 60, 2);
             } else {
@@ -156,6 +172,9 @@ class BookingService
                 $start = $date->addMinutes((int) $data['start']);
                 $end = $start->addHours((int) $data['durationHours']);
                 $price = $this->price($resource, (int) $data['durationHours']);
+                $subtotal = $price;
+                $discount = 0;
+                $quote = ['first_time' => false, 'hourly_cents' => null, 'coupon_applied' => false, 'coupon' => null, 'message' => null];
                 $legacyStart = (int) $data['start'];
                 $durationHours = (int) $data['durationHours'];
             }
@@ -164,7 +183,7 @@ class BookingService
                 throw new RuntimeException('UNAVAILABLE');
             }
 
-            return Booking::create([
+            $booking = Booking::create([
                 'reference' => 'MW-'.strtoupper(base_convert((string) (int) (microtime(true) * 1000), 10, 36)),
                 'user_id' => $user->id,
                 'resource_id' => $resource->id,
@@ -174,20 +193,32 @@ class BookingService
                 'hold_expires_at' => now()->addMinutes(PlatformSetting::valueOf('checkout_hold_minutes', 45)),
                 'status' => 'pending_payment',
                 'payment_status' => 'pending',
-                'subtotal_cents' => $price,
+                'subtotal_cents' => $subtotal,
+                'discount_cents' => $discount,
                 'total_cents' => $price,
                 'currency' => 'usd',
                 'customer_name' => $data['name'],
                 'customer_email' => strtolower($data['email']),
                 'customer_phone' => $data['phone'] ?? null,
+                'customer_phone_digits' => $this->pricing->normalizePhone($data['phone'] ?? null),
                 'notes' => $data['notes'] ?? null,
                 'meta' => [
                     'legacy_start_minutes' => $legacyStart,
                     'duration_hours' => $durationHours,
                     'from' => $start->format('m/d/Y H:i'),
                     'to' => $end->format('m/d/Y H:i'),
+                    'rate' => $quote['first_time'] ? 'first_time' : 'standard',
+                    'hourly_cents' => $quote['hourly_cents'],
+                    'coupon_code' => $quote['coupon_applied'] ? $quote['coupon']?->code : null,
+                    'pricing_message' => $quote['message'],
                 ],
             ]);
+
+            if ($quote['coupon_applied'] && $quote['coupon']) {
+                $this->pricing->reserve($quote['coupon'], $booking, $subtotal, $discount);
+            }
+
+            return $booking;
         }, 3);
     }
 
@@ -229,5 +260,6 @@ class BookingService
             'stripe_payment_intent_id' => $paymentIntent ?: $booking->stripe_payment_intent_id,
             'calendar_sync_status' => 'pending',
         ]);
+        $this->pricing->markUsedForBooking($booking);
     }
 }

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Resource;
 use App\Services\BookingService;
+use App\Services\ClientPricing;
 use App\Services\CustomerAccountService;
 use App\Services\StripeService;
 use Carbon\CarbonImmutable;
@@ -16,7 +17,7 @@ use Throwable;
 
 class BookingController extends Controller
 {
-    public function availability(Request $request, BookingService $bookings)
+    public function availability(Request $request, BookingService $bookings, ClientPricing $pricing)
     {
         $data = $request->validate([
             'resource' => ['nullable', 'in:studio-a'],
@@ -28,6 +29,9 @@ class BookingController extends Controller
             'end' => ['nullable', 'integer'],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date'],
+            'email' => ['nullable', 'email', 'max:190'],
+            'phone' => ['nullable', 'string', 'max:40'],
+            'coupon' => ['nullable', 'string', 'max:40'],
         ]);
         $resource = Resource::where('slug', 'studio-a')->firstOrFail();
         if (isset($data['month'], $data['year'])) {
@@ -45,9 +49,11 @@ class BookingController extends Controller
         $date = $data['date'] ?? phoenix_date_iso();
         $duration = (int) ($data['duration'] ?? 2);
         $busy = $bookings->busyRanges($resource, $date);
+        $now = CarbonImmutable::now($resource->timezone)->startOfMinute();
         $slots = [];
         for ($time = OPEN_MIN; $time <= CLOSE_MIN; $time += SLOT_STEP) {
-            $open = $date >= phoenix_date_iso() && (
+            $moment = CarbonImmutable::parse($date, $resource->timezone)->startOfDay()->addMinutes($time);
+            $open = $moment->greaterThanOrEqualTo($now) && (
                 $time === CLOSE_MIN
                     ? is_range_open($busy, $time - SLOT_STEP, $time)
                     : is_range_open($busy, $time, $time + SLOT_STEP)
@@ -64,12 +70,24 @@ class BookingController extends Controller
             $rangeStart = CarbonImmutable::parse($data['from'], $resource->timezone);
             $rangeEnd = CarbonImmutable::parse($data['to'], $resource->timezone);
             $status = $bookings->rangeStatus($resource, $rangeStart, $rangeEnd);
+            $minutes = (int) $rangeStart->diffInMinutes($rangeEnd);
+            $priced = $status === 'invalid_range' ? null : $pricing->quote($minutes, $data['email'] ?? $request->user()?->email, $data['phone'] ?? $request->user()?->phone, $request->user()?->id, $data['coupon'] ?? null);
             $quote = [
                 'available' => $status === 'ok',
                 'status' => $status,
-                'price' => $status === 'invalid_range' ? null : intdiv($bookings->priceForMinutes($resource, (int) $rangeStart->diffInMinutes($rangeEnd)), 100),
+                'price' => $priced ? intdiv($priced['total_cents'], 100) : null,
                 'from' => $rangeStart->format('m/d/Y H:i'),
                 'to' => $rangeEnd->format('m/d/Y H:i'),
+                'pricing' => $priced ? [
+                    'firstTime' => $priced['first_time'],
+                    'hourly' => intdiv($priced['hourly_cents'], 100),
+                    'subtotalCents' => $priced['subtotal_cents'],
+                    'discountCents' => $priced['discount_cents'],
+                    'totalCents' => $priced['total_cents'],
+                    'message' => $priced['message'],
+                    'couponApplied' => $priced['coupon_applied'],
+                    'couponError' => $priced['coupon_error'],
+                ] : null,
             ];
             if ($quote['price'] !== null) {
                 $price = $quote['price'];
@@ -99,7 +117,7 @@ class BookingController extends Controller
         return response()->json($this->legacyPayload($booking));
     }
 
-    public function store(Request $request, BookingService $bookings, StripeService $stripe, CustomerAccountService $accounts)
+    public function store(Request $request, BookingService $bookings, StripeService $stripe, CustomerAccountService $accounts, ClientPricing $pricing)
     {
         $data = $request->validate([
             'resourceId' => ['required', 'in:studio-a'],
@@ -112,6 +130,7 @@ class BookingController extends Controller
             'email' => ['required', 'email', 'max:190'],
             'phone' => ['nullable', 'string', 'max:40'],
             'notes' => ['nullable', 'string', 'max:3000'],
+            'coupon' => ['nullable', 'string', 'max:40'],
             'price' => ['nullable', 'integer'],
         ]);
 
@@ -130,6 +149,7 @@ class BookingController extends Controller
             $booking = $bookings->holdStudio($data, $user);
             if (array_key_exists('price', $data) && $data['price'] !== null && $booking->total_cents !== $data['price'] * 100 && $data['price'] !== intdiv($booking->total_cents, 100)) {
                 $booking->update(['status' => 'cancelled', 'payment_status' => 'cancelled']);
+                $pricing->releaseForBooking($booking);
                 throw ValidationException::withMessages(['price' => 'Price mismatch']);
             }
             $session = $stripe->bookingCheckout($booking->load('resource'));
@@ -149,17 +169,19 @@ class BookingController extends Controller
                 'url' => $session->url,
             ]);
         } catch (RuntimeException $exception) {
-            $message = match ($exception->getMessage()) {
-                'UNAVAILABLE' => 'This time is unavailable.',
-                'CLOSED' => 'That range includes hours when Studio A is closed (2:00 AM–9:00 AM).',
-                'INVALID_RANGE' => 'Choose an end time after the start time.',
+            $message = match (true) {
+                $exception->getMessage() === 'UNAVAILABLE' => 'This time is unavailable.',
+                $exception->getMessage() === 'CLOSED' => 'That range includes hours when Studio A is closed (02:00–09:00).',
+                $exception->getMessage() === 'INVALID_RANGE' => 'Choose an end time after the start time.',
+                $exception->getMessage() === 'PAST' => 'That time has already passed. Choose a later open slot.',
+                str_starts_with($exception->getMessage(), 'COUPON:') => substr($exception->getMessage(), 7),
                 default => null,
             };
             if ($message === null) {
                 throw $exception;
             }
 
-            return response()->json(['error' => $message, 'code' => $exception->getMessage()], $exception->getMessage() === 'UNAVAILABLE' ? 409 : 422);
+            return response()->json(['error' => $message, 'code' => str_starts_with($exception->getMessage(), 'COUPON:') ? 'COUPON' : $exception->getMessage()], $exception->getMessage() === 'UNAVAILABLE' ? 409 : 422);
         } catch (Throwable $exception) {
             if (isset($booking)) {
                 $booking->update(['status' => 'cancelled', 'payment_status' => 'failed']);

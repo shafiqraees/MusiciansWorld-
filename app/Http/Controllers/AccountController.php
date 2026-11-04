@@ -4,15 +4,19 @@ namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
 use App\Models\Booking;
+use App\Models\Coupon;
+use App\Models\CouponRedemption;
 use App\Models\CustomerMembership;
 use App\Models\Event;
 use App\Models\FinancialTransaction;
 use App\Models\MembershipPlan;
 use App\Models\Order;
 use App\Models\User;
+use App\Services\ClientPricing;
 use App\Services\StripeService;
 use App\Support\Finance;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Throwable;
 
 /**
@@ -22,13 +26,14 @@ class AccountController extends Controller
 {
     /* ----------------------------------------------------------------- pages */
 
-    public function dashboard(Request $request)
+    public function dashboard(Request $request, ClientPricing $pricing)
     {
         $user = $request->user()->load(['roles', 'memberships.plan', 'bookings.resource', 'registrations.program', 'tickets.event.resource', 'tickets.ticketType', 'events.ticketTypes', 'events.settlement', 'transactions', 'organizerProfile']);
         $membership = $this->activeMembership($user);
-        $upcomingBookings = $user->bookings->filter(fn ($b) => $b->ends_at->isFuture() && !in_array($b->status, ['cancelled', 'refunded', 'failed'], true))->sortBy('starts_at');
+        $upcomingBookings = $user->bookings->filter(fn ($b) => $b->ends_at->isFuture() && ! in_array($b->status, ['cancelled', 'refunded', 'failed'], true))->sortBy('starts_at');
         $upcomingTickets = $user->tickets->filter(fn ($t) => $t->event?->ends_at?->isFuture())->sortBy(fn ($t) => $t->event->starts_at);
         $receipts = $user->transactions->filter(fn ($t) => Finance::isCustomerFacing($t->type) && $t->status === 'succeeded');
+        $returning = $pricing->isReturning($user->email, $user->phone, $user->id);
 
         return view('account.overview', [
             'user' => $user,
@@ -39,6 +44,9 @@ class AccountController extends Controller
             'recentReceipts' => $user->transactions->filter(fn ($t) => Finance::isCustomerFacing($t->type))->sortByDesc('created_at')->take(5),
             'spent' => (int) $receipts->sum('amount_cents'),
             'activeEvents' => $user->events->whereIn('status', ['submitted', 'approved', 'published', 'changes_requested'])->count(),
+            'studioHourlyCents' => $returning ? $pricing->standardHourlyCents() : $pricing->firstTimeHourlyCents(),
+            'studioRateIsFirstTime' => ! $returning,
+            ...$this->couponActivity($user, $pricing),
         ]);
     }
 
@@ -77,10 +85,10 @@ class AccountController extends Controller
         ]);
     }
 
-    public function bookings(Request $request)
+    public function bookings(Request $request, ClientPricing $pricing)
     {
         $user = $request->user()->load('bookings.resource', 'bookings.transactions');
-        $upcoming = $user->bookings->filter(fn ($b) => $b->ends_at->isFuture() && !in_array($b->status, ['cancelled', 'refunded', 'failed'], true))->sortBy('starts_at');
+        $upcoming = $user->bookings->filter(fn ($b) => $b->ends_at->isFuture() && ! in_array($b->status, ['cancelled', 'refunded', 'failed'], true))->sortBy('starts_at');
         $past = $user->bookings->reject(fn ($b) => $upcoming->contains($b))->sortByDesc('starts_at');
 
         return view('account.bookings', [
@@ -88,6 +96,7 @@ class AccountController extends Controller
             'upcoming' => $upcoming,
             'past' => $past,
             'totalSpent' => (int) $user->bookings->where('payment_status', 'paid')->sum('total_cents'),
+            ...$this->couponActivity($user, $pricing),
         ]);
     }
 
@@ -205,7 +214,7 @@ class AccountController extends Controller
     public function receipt(Request $request, FinancialTransaction $transaction)
     {
         abort_unless($transaction->user_id === $request->user()->id, 403);
-        abort_if(!Finance::isCustomerFacing($transaction->type), 404);
+        abort_if(! Finance::isCustomerFacing($transaction->type), 404);
         $transaction->loadMorph('transactable', [
             Booking::class => ['resource'],
             Order::class => ['event', 'items.ticketType', 'transactions'],
@@ -253,20 +262,20 @@ class AccountController extends Controller
     {
         $request->validate(['confirm' => ['accepted']]);
         $membership = $this->cancellableMembership($request->user());
-        if (!$membership) {
+        if (! $membership) {
             return back()->withErrors(['membership' => 'Free Community stays with your account. Paid plans can be set to end at the close of the current period.']);
         }
         if ($membership->cancelled_at) {
             return redirect()->route('account.membership')->with('success', 'This membership is already scheduled to end.');
         }
-        if (!$this->scheduleStripeCancellation($membership, true)) {
+        if (! $this->scheduleStripeCancellation($membership, true)) {
             return back()->withErrors(['membership' => 'The billing provider could not schedule this cancellation. Your membership is unchanged.']);
         }
 
         $before = $membership->only(['status', 'cancelled_at']);
         $endsLater = $membership->current_period_end && $membership->current_period_end->isFuture();
         $membership->update($endsLater ? ['cancelled_at' => now()] : ['status' => 'cancelled', 'cancelled_at' => now()]);
-        if (!$endsLater) {
+        if (! $endsLater) {
             $this->ensureFreeCommunity($request->user());
         }
         $this->audit($request, 'membership.cancellation_scheduled', $membership, $before, $membership->fresh()->only(['status', 'cancelled_at']));
@@ -285,10 +294,10 @@ class AccountController extends Controller
             ->whereNotNull('cancelled_at')
             ->where(fn ($q) => $q->whereNull('current_period_end')->orWhere('current_period_end', '>', now()))
             ->latest()->first();
-        if (!$membership) {
+        if (! $membership) {
             return back()->withErrors(['membership' => 'There is no scheduled cancellation to keep.']);
         }
-        if (!$this->scheduleStripeCancellation($membership, false)) {
+        if (! $this->scheduleStripeCancellation($membership, false)) {
             return back()->withErrors(['membership' => 'The billing provider could not restore this membership. It is still scheduled to end.']);
         }
         $before = $membership->only(['status', 'cancelled_at']);
@@ -318,6 +327,43 @@ class AccountController extends Controller
 
     /* --------------------------------------------------------------- helpers */
 
+    /**
+     * @return array{assignedCoupons: Collection, couponRedemptions: Collection}
+     */
+    private function couponActivity(User $user, ClientPricing $pricing): array
+    {
+        $email = $pricing->normalizeEmail($user->email);
+        $redemptions = CouponRedemption::query()
+            ->with('coupon')
+            ->where(function ($query) use ($user, $email) {
+                $query->where('user_id', $user->id);
+                if ($email !== '') {
+                    $query->orWhere('email', $email);
+                }
+            })
+            ->latest()
+            ->limit(20)
+            ->get();
+        $assigned = Coupon::query()
+            ->withCount([
+                'redemptions as used_count' => fn ($query) => $query->where('status', 'used'),
+                'redemptions as reserved_count' => fn ($query) => $query->where('status', 'reserved'),
+            ])
+            ->where(function ($query) use ($user, $email) {
+                $query->where('assigned_user_id', $user->id);
+                if ($email !== '') {
+                    $query->orWhere('assigned_email', $email);
+                }
+            })
+            ->orderBy('code')
+            ->get();
+
+        return [
+            'assignedCoupons' => $assigned,
+            'couponRedemptions' => $redemptions,
+        ];
+    }
+
     private function activeMembership(User $user): ?CustomerMembership
     {
         return $user->memberships
@@ -337,7 +383,7 @@ class AccountController extends Controller
     private function ensureFreeCommunity(User $user): void
     {
         $planId = MembershipPlan::where('slug', 'community')->value('id');
-        if (!$planId) {
+        if (! $planId) {
             return;
         }
         $existing = $user->memberships()->where('membership_plan_id', $planId)->latest()->first();
@@ -346,6 +392,7 @@ class AccountController extends Controller
         }
         if ($existing) {
             $existing->update(['status' => 'active', 'cancelled_at' => null]);
+
             return;
         }
         $user->memberships()->create(['membership_plan_id' => $planId, 'status' => 'active']);
@@ -353,14 +400,15 @@ class AccountController extends Controller
 
     private function scheduleStripeCancellation(CustomerMembership $membership, bool $cancel): bool
     {
-        if (!$membership->stripe_subscription_id || !config('services.stripe.secret')) {
+        if (! $membership->stripe_subscription_id || ! config('services.stripe.secret')) {
             return true;
         }
         try {
             app(StripeService::class)->client()->subscriptions->update($membership->stripe_subscription_id, ['cancel_at_period_end' => $cancel]);
         } catch (Throwable $exception) {
-            if (!str_contains($exception->getMessage(), 'No such subscription')) {
+            if (! str_contains($exception->getMessage(), 'No such subscription')) {
                 report($exception);
+
                 return false;
             }
         }
@@ -370,7 +418,7 @@ class AccountController extends Controller
 
     private function recognizedBenefits(?CustomerMembership $membership): array
     {
-        if (!$membership?->plan) {
+        if (! $membership?->plan) {
             return [];
         }
         $plan = $membership->plan->relationLoaded('benefits') ? $membership->plan : $membership->plan->load('benefits');

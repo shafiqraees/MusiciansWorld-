@@ -20,6 +20,7 @@ $menu = [
     ['label' => 'Bookings', 'route' => 'admin.bookings', 'icon' => 'calendar', 'permission' => 'bookings.view'],
     ['label' => 'Events & approvals', 'route' => 'admin.events', 'icon' => 'ticket', 'badge' => $pendingEvents, 'permission' => 'events.view'],
     ['section' => 'Finance & configuration'],
+    ['label' => 'Coupons & rates', 'route' => 'admin.coupons', 'icon' => 'tag', 'permission' => 'settings.manage'],
     ['label' => 'Transactions', 'route' => 'admin.transactions', 'icon' => 'dollar', 'permission' => 'reports.view'],
     ['label' => 'Reports', 'route' => 'admin.reports', 'icon' => 'chart', 'permission' => 'reports.view'],
     ['label' => 'Settings', 'route' => 'admin.settings', 'icon' => 'settings', 'permission' => 'settings.manage', 'match' => ['admin.settings', 'admin.settings.*']],

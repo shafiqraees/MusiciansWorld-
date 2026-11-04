@@ -32,6 +32,28 @@
         </div>
       </section>
       <section class="a-card">
+        <div class="a-card-head"><div><h3>Code use</h3><p>How many times each code has been consumed. A one-time code cannot be used again.</p></div><a class="a-link" href="{{ route('admin.coupons') }}">Manage codes →</a></div>
+        <div class="a-table-wrap"><table class="a-table">
+          <thead><tr><th>Code</th><th>Assigned to</th><th>Consumed</th><th>Limit</th></tr></thead>
+          <tbody>
+          @forelse($couponUsage as $coupon)
+            <tr>
+              <td><strong>{{ $coupon->code }}</strong><small>{{ $coupon->percent }}% {{ $coupon->kind === 'family' ? 'family' : 'coupon' }}</small></td>
+              <td>{{ $coupon->assigned_email ?: 'Anyone' }}</td>
+              <td class="num">{{ $coupon->used_count }}@if($coupon->reserved_count)<small>{{ $coupon->reserved_count }} held</small>@endif</td>
+              <td>{{ $coupon->max_uses === 1 ? 'One time' : $coupon->used_count.' / '.$coupon->max_uses }}
+                @if($coupon->once_per_customer && $coupon->max_uses !== 1)
+                  <small>One use per customer</small>
+                @endif
+              </td>
+            </tr>
+          @empty
+            <tr><td colspan="4"><div class="a-table-empty"><strong>No codes yet</strong>Create a coupon or family code to track use here.</div></td></tr>
+          @endforelse
+          </tbody>
+        </table></div>
+      </section>
+      <section class="a-card">
         <div class="a-card-head"><div><h3>Recent bookings</h3></div><a class="a-link" href="{{ route('admin.bookings') }}">View booking desk →</a></div>
         <div class="a-list">
           @forelse($recentBookings as $booking)

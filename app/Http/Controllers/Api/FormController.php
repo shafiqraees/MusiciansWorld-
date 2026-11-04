@@ -8,8 +8,10 @@ use App\Models\MembershipPlan;
 use App\Models\Program;
 use App\Models\ProgramRegistration;
 use App\Models\User;
+use App\Services\ClientPricing;
 use App\Services\CustomerAccountService;
 use App\Services\NotificationService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -92,7 +94,7 @@ class FormController extends Controller
         return response()->json(['ok' => true, 'note' => 'Inquiry received. The desk will follow up to confirm placement.']);
     }
 
-    public function soundtunnel(Request $request, NotificationService $notifications, CustomerAccountService $accounts)
+    public function soundtunnel(Request $request, NotificationService $notifications, CustomerAccountService $accounts, ClientPricing $pricing)
     {
         if ($request->filled('website')) {
             return response()->json(['ok' => true]);
@@ -119,17 +121,22 @@ class FormController extends Controller
             'productionNotes' => ['nullable', 'string', 'max:3000'],
             'message' => ['required', 'string', 'min:20', 'max:5000'],
             'referral' => ['nullable', 'string', 'max:100'],
+            'coupon' => ['nullable', 'string', 'max:40'],
             'terms' => ['accepted'],
         ]);
         $user = $this->account($request, $data, $accounts);
-        $this->save('soundtunnel_rental', $data, $user);
+        $submission = $this->save('soundtunnel_rental', $data, $user);
+        $couponNote = $this->applyInquiryCoupon($pricing, $data['coupon'] ?? null, 'soundtunnel', $submission);
+        if ($couponNote instanceof JsonResponse) {
+            return $couponNote;
+        }
         $notifications->adminAfterResponse('New SoundTunnel rental request — '.$data['name'], $data);
         $notifications->welcomeAfterResponse($data['email'], $data['name'], 'soundtunnel', $data['eventType']);
 
-        return response()->json(['ok' => true, 'note' => 'Application received. Check your email for the next registration step.']);
+        return response()->json(['ok' => true, 'note' => trim($couponNote.' Application received. Check your email for the next registration step.')]);
     }
 
-    public function djSchool(Request $request, NotificationService $notifications, CustomerAccountService $accounts)
+    public function djSchool(Request $request, NotificationService $notifications, CustomerAccountService $accounts, ClientPricing $pricing)
     {
         if ($request->filled('website')) {
             return response()->json(['ok' => true, 'note' => 'Request received. Check your email to complete DJ Registration.']);
@@ -174,12 +181,17 @@ class FormController extends Controller
             'goals' => ['required', 'string', 'min:10', 'max:5000'],
             'referral' => ['required', Rule::in(['Instagram', 'Facebook', 'Google Search', 'Family/Friends', 'Event', 'DJ/Instructor Referral', 'Our Website', 'Other'])],
             'additional' => ['nullable', 'string', 'max:5000'],
+            'coupon' => ['nullable', 'string', 'max:40'],
             'acknowledgment' => ['accepted'],
         ]);
         $data['acknowledgment'] = 'Accepted';
 
         $user = $this->account($request, $data, $accounts);
-        $this->save('dj_school_inquiry', $data, $user);
+        $submission = $this->save('dj_school_inquiry', $data, $user);
+        $couponNote = $this->applyInquiryCoupon($pricing, $data['coupon'] ?? null, 'dj_school', $submission);
+        if ($couponNote instanceof JsonResponse) {
+            return $couponNote;
+        }
         $slug = $programs[$data['program']];
         if ($slug && $program = Program::where('slug', $slug)->first()) {
             ProgramRegistration::create([
@@ -197,7 +209,7 @@ class FormController extends Controller
         $notifications->adminAfterResponse('New DJ School inquiry — '.$data['name'], $data);
         $notifications->welcomeAfterResponse($data['email'], $data['name'], 'dj', $data['program']);
 
-        return response()->json(['ok' => true, 'note' => 'Request received. Check your email to complete DJ Registration.']);
+        return response()->json(['ok' => true, 'note' => trim($couponNote.' Request received. Check your email to complete DJ Registration.')]);
     }
 
     public function membershipStatus()
@@ -265,5 +277,21 @@ class FormController extends Controller
         }
 
         return $user;
+    }
+
+    private function applyInquiryCoupon(ClientPricing $pricing, ?string $code, string $service, FormSubmission $submission): string|JsonResponse
+    {
+        if (blank($code)) {
+            return '';
+        }
+
+        $result = $pricing->redeemInquiry($code, $service, $submission);
+        if (! $result['ok']) {
+            $submission->delete();
+
+            return response()->json(['error' => $result['message']], 422);
+        }
+
+        return 'Code applied.';
     }
 }

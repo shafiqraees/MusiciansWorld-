@@ -13,6 +13,7 @@ use App\Models\OrganizerSettlement;
 use App\Models\User;
 use App\Models\WebhookEvent;
 use App\Services\BookingService;
+use App\Services\ClientPricing;
 use App\Services\CustomerAccountService;
 use App\Services\MicrosoftCalendarService;
 use App\Services\StripeService;
@@ -47,7 +48,7 @@ class StripeController extends Controller
         }
     }
 
-    public function webhook(Request $request, BookingService $bookings, MicrosoftCalendarService $calendar, TicketService $tickets)
+    public function webhook(Request $request, BookingService $bookings, MicrosoftCalendarService $calendar, TicketService $tickets, ClientPricing $pricing)
     {
         $secret = (string) config('services.stripe.webhook_secret');
         if ($secret === '') {
@@ -106,11 +107,17 @@ class StripeController extends Controller
                     CustomerMembership::where('stripe_subscription_id', $subscriptionId)->update(['status' => 'grace', 'grace_ends_at' => now()->addDays(7)]);
                 }
                 if ($event->type === 'checkout.session.expired') {
-                    Booking::where('stripe_checkout_session_id', $object->id)->where('status', 'pending_payment')->update(['status' => 'expired', 'payment_status' => 'expired']);
+                    Booking::where('stripe_checkout_session_id', $object->id)->where('status', 'pending_payment')->get()->each(function (Booking $booking) use ($pricing) {
+                        $booking->update(['status' => 'expired', 'payment_status' => 'expired']);
+                        $pricing->releaseForBooking($booking);
+                    });
                     Order::where('stripe_checkout_session_id', $object->id)->where('status', 'pending')->update(['status' => 'expired', 'payment_status' => 'expired']);
                 }
                 if ($event->type === 'checkout.session.async_payment_failed') {
-                    Booking::where('stripe_checkout_session_id', $object->id)->where('status', 'pending_payment')->update(['status' => 'failed', 'payment_status' => 'failed', 'hold_expires_at' => null]);
+                    Booking::where('stripe_checkout_session_id', $object->id)->where('status', 'pending_payment')->get()->each(function (Booking $booking) use ($pricing) {
+                        $booking->update(['status' => 'failed', 'payment_status' => 'failed', 'hold_expires_at' => null]);
+                        $pricing->releaseForBooking($booking);
+                    });
                     Order::where('stripe_checkout_session_id', $object->id)->where('status', 'pending')->update(['status' => 'failed', 'payment_status' => 'failed']);
                 }
                 if ($event->type === 'payment_intent.payment_failed') {

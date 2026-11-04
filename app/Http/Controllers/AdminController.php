@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Admin\Concerns\RecordsAudit;
 use App\Models\AuditLog;
 use App\Models\Booking;
+use App\Models\Coupon;
 use App\Models\Event;
 use App\Models\EventService;
 use App\Models\FinancialTransaction;
@@ -18,6 +19,8 @@ use App\Models\User;
 use App\Services\MicrosoftCalendarService;
 use App\Services\SettlementService;
 use App\Services\StripeService;
+use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -28,7 +31,9 @@ class AdminController extends Controller
     use RecordsAudit;
 
     public const BOOKING_STATUSES = ['pending_payment' => 'Pending payment', 'confirmed' => 'Confirmed', 'paid' => 'Paid', 'admin_hold' => 'Admin hold', 'cancelled' => 'Cancelled', 'expired' => 'Expired', 'refunded' => 'Refunded', 'failed' => 'Failed'];
+
     public const PAYMENT_STATUSES = ['paid' => 'Paid', 'pending' => 'Pending', 'failed' => 'Failed', 'cancelled' => 'Cancelled', 'expired' => 'Expired', 'refunded' => 'Refunded'];
+
     public const EVENT_STATUSES = ['draft' => 'Draft', 'submitted' => 'Submitted', 'changes_requested' => 'Changes requested', 'approved' => 'Approved', 'published' => 'Published', 'suspended' => 'Suspended', 'rejected' => 'Rejected', 'completed' => 'Completed', 'closeout' => 'Closeout'];
 
     public function dashboard()
@@ -46,13 +51,18 @@ class AdminController extends Controller
         $recentBookings = Booking::with('resource')->latest()->limit(6)->get();
         $pendingEventRows = Event::with('organizer')->where('status', 'submitted')->oldest('submitted_at')->limit(5)->get();
         $recentSubmissions = FormSubmission::latest()->limit(6)->get();
+        $couponUsage = Coupon::query()->with('assignedUser')->withCount([
+            'redemptions as used_count' => fn ($query) => $query->where('status', 'used'),
+            'redemptions as reserved_count' => fn ($query) => $query->where('status', 'reserved'),
+        ])->latest()->limit(8)->get();
         $health = [
             'Stripe payments' => config('services.stripe.secret') ? 'connected' : 'not configured',
             'Mail delivery' => config('mail.default') === 'smtp' ? 'connected' : config('mail.default'),
             'Microsoft Calendar' => config('services.microsoft.client_id') ? 'connected' : 'not configured',
             'Automation queue' => IntegrationJob::where('status', 'failed')->exists() ? 'attention needed' : 'healthy',
         ];
-        return view('admin.dashboard', compact('metrics', 'recentUsers', 'recentBookings', 'pendingEventRows', 'recentSubmissions', 'health'));
+
+        return view('admin.dashboard', compact('metrics', 'recentUsers', 'recentBookings', 'pendingEventRows', 'recentSubmissions', 'couponUsage', 'health'));
     }
 
     public function bookings(Request $request)
@@ -72,10 +82,10 @@ class AdminController extends Controller
             $query->where('resource_id', (int) $request->input('resource'));
         }
         if ($request->filled('from')) {
-            $query->where('starts_at', '>=', \Carbon\Carbon::parse($request->input('from'))->startOfDay());
+            $query->where('starts_at', '>=', Carbon::parse($request->input('from'))->startOfDay());
         }
         if ($request->filled('to')) {
-            $query->where('starts_at', '<=', \Carbon\Carbon::parse($request->input('to'))->endOfDay());
+            $query->where('starts_at', '<=', Carbon::parse($request->input('to'))->endOfDay());
         }
         if ($request->input('when') === 'upcoming') {
             $query->where('starts_at', '>=', now());
@@ -113,7 +123,7 @@ class AdminController extends Controller
         $before = $booking->toArray();
         $paymentChanged = $booking->payment_status !== $data['payment_status'];
         $status = $data['status'] ?? null;
-        if ($paymentChanged && !$status) {
+        if ($paymentChanged && ! $status) {
             $status = $data['payment_status'] === 'paid' ? 'confirmed' : ($data['payment_status'] === 'pending' ? $booking->status : $data['payment_status']);
         }
         $booking->update([
@@ -130,6 +140,7 @@ class AdminController extends Controller
             $calendar->cancelBooking($booking->fresh('resource'));
         }
         $this->audit($request, $paymentChanged ? 'booking.payment_status' : 'booking.updated', $booking, $before, $data['reason']);
+
         return back()->with('success', 'Booking '.$booking->reference.' updated.');
     }
 
@@ -196,6 +207,7 @@ class AdminController extends Controller
             'teardown_minutes' => (int) ($data['teardown_minutes'] ?? 0),
         ]);
         $this->audit($request, 'event.updated_by_admin', $event, $before, $data['reason']);
+
         return back()->with('success', 'Event "'.$event->title.'" updated.');
     }
 
@@ -215,8 +227,7 @@ class AdminController extends Controller
                     $eventConflict = Event::where('resource_id', $event->resource_id)->whereKeyNot($event->id)
                         ->whereIn('status', ['approved', 'published', 'completed', 'closeout'])
                         ->where('starts_at', '<', $end->copy()->addDay())->where('ends_at', '>', $start->copy()->subDay())
-                        ->get()->contains(fn (Event $other) =>
-                            $other->starts_at->copy()->subMinutes($other->setup_minutes)->lt($end)
+                        ->get()->contains(fn (Event $other) => $other->starts_at->copy()->subMinutes($other->setup_minutes)->lt($end)
                             && $other->ends_at->copy()->addMinutes($other->teardown_minutes)->gt($start)
                         );
                     if ($bookingConflict || $eventConflict) {
@@ -243,6 +254,7 @@ class AdminController extends Controller
             return back()->withErrors(['action' => $exception->getMessage()])->with('modal', 'event-'.$event->id);
         }
         $this->audit($request, 'event.'.$data['action'], $event, $before, $data['notes'] ?? null);
+
         return back()->with('success', 'Event "'.$event->title.'" is now '.str_replace('_', ' ', $event->fresh()->status).'.');
     }
 
@@ -253,8 +265,8 @@ class AdminController extends Controller
 
     public function reports(Request $request)
     {
-        $from = \Carbon\CarbonImmutable::parse($request->query('from', now()->startOfMonth()->toDateString()))->startOfDay();
-        $to = \Carbon\CarbonImmutable::parse($request->query('to', now()->toDateString()))->endOfDay();
+        $from = CarbonImmutable::parse($request->query('from', now()->startOfMonth()->toDateString()))->startOfDay();
+        $to = CarbonImmutable::parse($request->query('to', now()->toDateString()))->endOfDay();
         $revenue = FinancialTransaction::selectRaw('type, SUM(amount_cents) amount_cents')
             ->where('status', 'succeeded')->whereBetween('created_at', [$from, $to])
             ->groupBy('type')->orderBy('type')->get();
@@ -278,6 +290,7 @@ class AdminController extends Controller
                 fclose($out);
             }, 'mwcn-financial-report-'.now()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv']);
         }
+
         return view('admin.reports', compact('revenue', 'bookings', 'memberships', 'events', 'totals', 'from', 'to'));
     }
 
@@ -296,7 +309,7 @@ class AdminController extends Controller
 
     public function updateRolePermissions(Request $request, Role $role)
     {
-        abort_if($role->name === 'super_admin' && !$request->user()->hasRole('super_admin'), 403);
+        abort_if($role->name === 'super_admin' && ! $request->user()->hasRole('super_admin'), 403);
         $data = $request->validate([
             'label' => ['required', 'string', 'max:100'],
             'permissions' => ['nullable', 'array'],
@@ -309,6 +322,7 @@ class AdminController extends Controller
             $role->permissionRecords()->sync($data['permissions'] ?? []);
         });
         $this->audit($request, 'role.permissions_synced', $role, $before, $data['reason'], ['label' => $role->fresh()->label, 'permissions' => $role->permissionRecords()->pluck('permissions.id')->all()]);
+
         return back()->with('success', $role->label.' permissions synchronized.');
     }
 
@@ -326,6 +340,7 @@ class AdminController extends Controller
             'contact' => 'Contact',
             'membership_waitlist' => 'Membership',
         ];
+
         return view('admin.submissions', [
             'submissions' => $query->paginate(40)->withQueryString(),
             'types' => $types,
@@ -336,6 +351,7 @@ class AdminController extends Controller
     public function export(Request $request)
     {
         $type = $request->query('type', 'bookings');
+
         return response()->streamDownload(function () use ($type) {
             $out = fopen('php://output', 'w');
             if ($type === 'members') {
@@ -358,12 +374,14 @@ class AdminController extends Controller
     public function retryFailure(IntegrationJob $job)
     {
         $job->update(['status' => 'pending', 'next_attempt_at' => now(), 'last_error' => null]);
+
         return back()->with('success', 'Integration retry queued.');
     }
 
     public function calculateSettlement(Event $event, SettlementService $settlements)
     {
         $settlements->calculate($event->load('orders', 'resource', 'services'));
+
         return back()->with('success', 'Settlement recalculated from ledger records.');
     }
 
@@ -372,6 +390,7 @@ class AdminController extends Controller
         $request->validate(['confirm' => ['accepted']]);
         try {
             $settlements->transfer($settlement, $request->user()->id, $stripe);
+
             return back()->with('success', 'Organizer transfer submitted to Stripe.');
         } catch (RuntimeException $exception) {
             return back()->withErrors(['settlement' => $exception->getMessage()]);

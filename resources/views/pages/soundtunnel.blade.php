@@ -346,6 +346,10 @@ page_hero(
                   <option>Attended an event</option><option>Google search</option><option>MusiciansWorld member</option><option>Other</option>
                 </select>
               </label>
+              <label class="st-field st-span-2">
+                <span>Coupon or family code <em>Optional</em></span>
+                <input name="coupon" maxlength="40" placeholder="Enter a code if you have one" />
+              </label>
             </div>
             <label class="st-consent">
               <input name="terms" type="checkbox" value="1" required />

@@ -246,6 +246,7 @@ $choice = static function (string $legend, string $name, array $options, string 
               <label class="st-field st-span-2"><span>What are you hoping to learn or accomplish? <b>*</b></span><textarea name="goals" required minlength="10" rows="4" placeholder="Enter your answer"></textarea><small class="st-field-error"></small></label>
             </div>
             <?php $choice("How did you hear about us?", "referral", ["Instagram", "Facebook", "Google Search", "Family/Friends", "Event", "DJ/Instructor Referral", "Our Website", "Other"]); ?>
+            <label class="st-field" style="margin-top:22px"><span>Coupon or family code <em>Optional</em></span><input name="coupon" maxlength="40" placeholder="Enter a code if you have one"></label>
             <label class="st-field" style="margin-top:22px"><span>Additional questions or information <em>Optional</em></span><textarea name="additional" rows="4" placeholder="Enter your answer"></textarea></label>
             <label class="st-consent">
               <input name="acknowledgment" type="checkbox" value="1" required />

@@ -139,7 +139,10 @@ class CustomerFormAccountTest extends TestCase
         $booking = Booking::query()->where('customer_email', 'range.guest@example.com')->firstOrFail();
         $this->assertSame($from->format('m/d/Y H:i'), $booking->meta['from']);
         $this->assertSame($to->format('m/d/Y H:i'), $booking->meta['to']);
-        $this->assertSame(10500, $booking->total_cents);
+        $this->assertSame(9000, $booking->total_cents);
+        $this->assertSame(9000, $booking->subtotal_cents);
+        $this->assertSame(0, $booking->discount_cents);
+        $this->assertSame('first_time', $booking->meta['rate']);
     }
 
     public function test_landing_range_is_the_time_charged_and_blocks_those_slots(): void
@@ -171,6 +174,32 @@ class CustomerFormAccountTest extends TestCase
 
         $this->assertFalse($slots->firstWhere('start', 12 * 60)['available']);
         $this->assertFalse($slots->firstWhere('start', 20 * 60)['available']);
+    }
+
+    public function test_a_time_that_already_passed_is_not_an_open_slot(): void
+    {
+        $past = now('America/Phoenix')->subHours(3)->seconds(0);
+        $slots = collect($this->getJson(route('booking.availability', [
+            'date' => $past->toDateString(),
+            'from' => $past->format('Y-m-d\TH:i'),
+            'to' => $past->copy()->addMinutes(90)->format('Y-m-d\TH:i'),
+        ]))->assertOk()->json('slots'));
+
+        $this->getJson(route('booking.availability', [
+            'date' => $past->toDateString(),
+            'from' => $past->format('Y-m-d\TH:i'),
+            'to' => $past->copy()->addMinutes(90)->format('Y-m-d\TH:i'),
+        ]))->assertOk()
+            ->assertJsonPath('quote.available', false)
+            ->assertJsonPath('quote.status', 'past');
+
+        $passed = $slots->filter(function (array $slot) use ($past): bool {
+            return $past->copy()->startOfDay()->addMinutes($slot['start'])->lt(now('America/Phoenix')->startOfMinute());
+        });
+        $this->assertNotEmpty($passed);
+        foreach ($passed as $slot) {
+            $this->assertFalse($slot['available']);
+        }
     }
 
     public function test_legacy_php_availability_endpoint_is_no_longer_used(): void

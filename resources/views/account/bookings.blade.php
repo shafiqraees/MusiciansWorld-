@@ -17,6 +17,8 @@
   <div class="acct-stat is-ok"><small>Total paid</small><strong>{{ a_money($totalSpent) }}</strong><span>across all bookings</span></div>
 </div>
 
+@include('account.partials.coupon-activity')
+
 <div class="acct-panel">
   <h2>Upcoming</h2>
   @forelse($upcoming as $booking)
@@ -30,7 +32,17 @@
         <div class="acct-pills">{!! acct_badge($booking->status) !!} {!! acct_badge($booking->payment_status, 'Payment '.a_label($booking->payment_status)) !!}</div>
       </div>
       <dl class="acct-dl">
-        <div><dt>Charged</dt><dd>{{ a_money($booking->total_cents) }}@if($booking->discount_cents) <span class="acct-meta">(includes {{ a_money($booking->discount_cents) }} member discount)</span>@endif</dd></div>
+        <div><dt>Charged</dt><dd>{{ a_money($booking->total_cents) }}
+          @if($booking->discount_cents)
+            <span class="acct-meta">({{ a_money($booking->discount_cents) }} off
+              @if(!empty($booking->meta['coupon_code']))
+                with code {{ $booking->meta['coupon_code'] }}
+              @endif
+            )</span>
+          @elseif(($booking->meta['rate'] ?? null) === 'first_time')
+            <span class="acct-meta">(first-time rate)</span>
+          @endif
+        </dd></div>
         <div><dt>Booked</dt><dd>{{ $booking->created_at->format('m/d/Y') }}</dd></div>
         @if($booking->notes)<div><dt>Notes</dt><dd style="white-space:pre-line">{{ $booking->notes }}</dd></div>@endif
       </dl>

@@ -88,6 +88,8 @@
     email: customer.email || "",
     phone: customer.phone || "",
     notes: "",
+    coupon: "",
+    pricing: null,
     error: "",
     busy: false,
   };
@@ -130,6 +132,11 @@
     state.email = String(fd.get("email") || "").trim().replace(/\s+/g, "");
     state.phone = String(fd.get("phone") || "").trim();
     state.notes = String(fd.get("notes") || "").trim();
+    state.coupon = String(fd.get("coupon") || "").trim().toUpperCase();
+  }
+
+  function money(cents) {
+    return "$" + (Number(cents) / 100).toFixed(2);
   }
 
   async function confirm() {
@@ -165,6 +172,7 @@
         email: state.email,
         phone: state.phone,
         notes: state.notes,
+        coupon: state.pricing && state.pricing.couponApplied ? state.coupon : "",
       }),
     });
     const data = await res.json();
@@ -277,9 +285,8 @@
       <div class="book-sheet">
         <p class="kicker">Review before payment</p>
         <h2 class="mt-2 text-lg font-semibold">Studio A</h2>
-        <div class="mt-3 text-sm leading-6">${rangeLabel()}</div>
-        <p class="mt-3 text-2xl">$${state.price}</p>
-        <p class="text-xs text-dim">These are the times that will be charged. After you confirm, Stripe opens for payment.</p>
+        <div class="mt-4 text-sm leading-6">${rangeLabel()}</div>
+        <p class="mt-3 text-sm text-dim">The price is shown when you confirm, before payment.</p>
         <form id="booking-details" class="mt-4 space-y-3" novalidate>
           <label class="block"><span class="mb-1 block text-xs tracking-[0.14em] text-dim uppercase">Name</span>
             <input name="name" required autocomplete="name" class="w-full border border-line bg-bg px-3 py-2" value="${escapeAttr(state.name)}" /></label>
@@ -288,12 +295,15 @@
           <p class="text-xs text-dim">A new account signs in with this email as both the username and the password.</p>
           <label class="block"><span class="mb-1 block text-xs tracking-[0.14em] text-dim uppercase">Phone</span>
             <input name="phone" type="tel" autocomplete="tel" class="w-full border border-line bg-bg px-3 py-2" value="${escapeAttr(state.phone)}" /></label>
+          <label class="block"><span class="mb-1 block text-xs tracking-[0.14em] text-dim uppercase">Coupon or family code</span>
+            <input name="coupon" autocomplete="off" class="w-full border border-line bg-bg px-3 py-2" value="${escapeAttr(state.coupon)}" placeholder="Optional" /></label>
+          <p class="text-xs text-dim">A first-time client rate cannot be combined with a code.</p>
           <label class="block"><span class="mb-1 block text-xs tracking-[0.14em] text-dim uppercase">Notes</span>
             <textarea name="notes" class="w-full border border-line bg-bg px-3 py-2" rows="3">${escapeHtml(state.notes)}</textarea></label>
           ${state.error ? `<p class="text-sm text-danger">${escapeHtml(state.error)}</p>` : ""}
           <div class="flex gap-2 pt-1">
-            <button class="btn btn-ghost flex-1" data-act="back" type="button">Back</button>
-            <button class="btn btn-mark flex-1" type="submit">Continue to payment</button>
+            <button class="btn btn-ghost flex-1" data-act="back" type="button" ${state.busy ? "disabled" : ""}>Back</button>
+            <button class="btn btn-mark flex-1" type="submit" ${state.busy ? "disabled" : ""}>${state.busy ? "Checking price…" : "Continue to payment"}</button>
           </div>
         </form>
       </div>`;
@@ -305,7 +315,7 @@
         <p class="book-where">Where · ${(window.MW && window.MW.locationLabel) || ""}</p>
         <h2 class="mt-2 text-lg font-semibold">${mm}/${dd}/${yy}</h2>
         <div class="mt-4 text-sm leading-6">${rangeLabel()}</div>
-        <p class="mt-4 text-3xl font-semibold">${state.price == null ? "" : "$" + state.price}</p>
+        <p class="mt-4 text-sm text-dim">The price appears on the confirmation step, before payment.</p>
         <p class="mt-5 text-xs tracking-[0.14em] text-dim uppercase">Select from slot, then to slot</p>
         <div class="mt-2 grid max-h-64 grid-cols-2 gap-1 overflow-auto sm:grid-cols-3">
           ${state.slots
@@ -318,7 +328,7 @@
         </div>
         ${
           blocked
-            ? `<p class="mt-4 border border-danger/40 bg-danger/10 p-3 text-sm">${escapeHtml(state.quote.status === "closed" ? "Studio A is closed between 02:00 and 09:00." : "That range is unavailable. Choose two open slots.")}</p>`
+            ? `<p class="mt-4 border border-danger/40 bg-danger/10 p-3 text-sm">${escapeHtml(state.quote.status === "closed" ? "Studio A is closed between 02:00 and 09:00." : state.quote.status === "past" ? "That time has already passed. Choose a later open slot." : "That range is unavailable. Choose two open slots.")}</p>`
             : ""
         }
         <button class="btn btn-mark mt-6 w-full" type="button" data-act="continue" ${!state.fromIso || !state.toIso || !state.quote || blocked ? "disabled" : ""}>Review from and to</button>
@@ -351,12 +361,17 @@
             ${confirmRow("Where", (window.MW && window.MW.locationLabel) || "")}
             ${confirmRow("From", labelIso(state.fromIso))}
             ${confirmRow("To", labelIso(state.toIso))}
-            ${confirmRow("Price", state.price == null ? "" : "$" + state.price)}
+            ${state.pricing ? confirmRow("Rate", (state.pricing.firstTime ? "First-time" : "Standard") + " · $" + state.pricing.hourly + "/hour") : ""}
+            ${state.pricing ? confirmRow("Subtotal", money(state.pricing.subtotalCents)) : ""}
+            ${state.pricing && state.pricing.discountCents ? confirmRow("Discount", money(state.pricing.discountCents)) : ""}
+            ${state.pricing && state.pricing.couponApplied ? confirmRow("Code", state.coupon) : ""}
+            ${confirmRow("Total", state.pricing ? money(state.pricing.totalCents) : (state.price == null ? "" : "$" + state.price))}
             ${confirmRow("Name", state.name)}
             ${confirmRow("Email", state.email)}
             ${confirmRow("Phone", state.phone)}
             ${confirmRow("Notes", state.notes)}
           </dl>
+          ${state.pricing && state.pricing.message ? `<p class="mt-3 text-sm">${escapeHtml(state.pricing.message)}</p>` : ""}
           ${state.error ? `<p class="text-sm text-danger">${escapeHtml(state.error)}</p>` : ""}
           <div class="mt-5 flex gap-2">
             <button class="btn btn-ghost flex-1" type="button" data-act="dismiss" ${state.busy ? "disabled" : ""}>Back</button>
@@ -370,7 +385,7 @@
     root.innerHTML = renderCalendar() + renderPanel() + (state.step === "confirm" ? renderConfirm() : "");
   }
 
-  function openConfirm() {
+  async function openConfirm() {
     syncDetailsFromDom();
     if (state.name.length < 2) {
       state.error = "Name is required.";
@@ -380,6 +395,39 @@
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(state.email)) {
       state.error = "Enter a valid email address.";
+      state.step = "details";
+      render();
+      return;
+    }
+
+    state.busy = true;
+    state.error = "";
+    state.step = "details";
+    render();
+    const query = new URLSearchParams({
+      resource: "studio-a",
+      date: state.date,
+      from: state.fromIso,
+      to: state.toIso,
+      email: state.email,
+      phone: state.phone,
+      coupon: state.coupon,
+    });
+    const res = await fetch(availabilityUrl + "?" + query.toString(), { headers: { Accept: "application/json" } });
+    const data = await res.json();
+    state.busy = false;
+    const pricing = data.quote && data.quote.pricing;
+    if (!res.ok || !pricing) {
+      state.error = "Could not confirm the price. Try again.";
+      state.step = "details";
+      render();
+      return;
+    }
+    state.pricing = pricing;
+    state.quote = data.quote;
+    state.price = pricing.totalCents / 100;
+    if (pricing.couponError) {
+      state.error = pricing.message || "This code is not valid.";
       state.step = "details";
       render();
       return;
@@ -468,8 +516,8 @@
   function onFieldEdit(e) {
     const el = e.target;
     if (!el || !el.name) return;
-    if (el.name === "name" || el.name === "email" || el.name === "phone" || el.name === "notes") {
-      state[el.name] = el.value;
+    if (el.name === "name" || el.name === "email" || el.name === "phone" || el.name === "notes" || el.name === "coupon") {
+      state[el.name] = el.name === "coupon" ? el.value.trim().toUpperCase() : el.value;
     }
   }
   root.addEventListener("input", onFieldEdit);
