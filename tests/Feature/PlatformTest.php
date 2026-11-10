@@ -29,9 +29,12 @@ class PlatformTest extends TestCase
 
     public function test_preserved_public_pages_render(): void
     {
-        foreach (['/', '/spaces', '/spaces/studio-a', '/book', '/soundtunnel', '/dj-school', '/membership', '/events', '/about', '/contact'] as $path) {
+        foreach (['/', '/spaces', '/spaces/studio-a', '/book', '/soundtunnel', '/dj-school', '/membership', '/events', '/about', '/contact', '/privacy', '/terms'] as $path) {
             $this->get($path)->assertOk();
         }
+        $this->get('/privacy')->assertSee('Privacy Policy')->assertSee('480-565-6708')->assertDontSee('Developer notes');
+        $this->get('/terms')->assertSee('Terms and Conditions')->assertSee('$150 a month')->assertDontSee('Developer notes');
+        $this->get('/contact')->assertSee('href="'.url('/privacy').'"', false)->assertSee('href="'.url('/terms').'"', false);
         $this->get('/soundtunnel/night')->assertRedirect('/dj-school');
         $this->get('/dj-school')->assertSee('Start your DJ journey')->assertSee('Parent/Legal guardian full name');
     }

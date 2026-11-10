@@ -300,6 +300,7 @@
           <p class="text-xs text-dim">A first-time client rate cannot be combined with a code.</p>
           <label class="block"><span class="mb-1 block text-xs tracking-[0.14em] text-dim uppercase">Notes</span>
             <textarea name="notes" class="w-full border border-line bg-bg px-3 py-2" rows="3">${escapeHtml(state.notes)}</textarea></label>
+          <p class="text-xs text-dim">By submitting, you agree to our <a class="text-mark" href="${(window.MW && window.MW.base) || ""}/privacy">Privacy Policy</a> and <a class="text-mark" href="${(window.MW && window.MW.base) || ""}/terms">Terms and Conditions</a>.</p>
           ${state.error ? `<p class="text-sm text-danger">${escapeHtml(state.error)}</p>` : ""}
           <div class="flex gap-2 pt-1">
             <button class="btn btn-ghost flex-1" data-act="back" type="button" ${state.busy ? "disabled" : ""}>Back</button>

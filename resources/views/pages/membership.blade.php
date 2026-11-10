@@ -78,6 +78,7 @@ $visibleTiers = array_values(array_filter($MEMBERSHIPS, fn($m) => $show_phase_2 
       <input name="website" type="text" tabindex="-1" autocomplete="off" />
     </label>
     <button class="btn btn-mark" type="submit">Submit</button>
+    <p class="text-xs text-dim">By submitting, you agree to our <a class="text-mark" href="<?= e(url("/privacy")) ?>">Privacy Policy</a> and <a class="text-mark" href="<?= e(url("/terms")) ?>">Terms and Conditions</a>.</p>
     <p class="form-msg text-sm text-dim" hidden></p>
     <p class="text-xs text-dim">Founding Member checkout is secured by Stripe. Free Community does not require a card.</p>
   </form>

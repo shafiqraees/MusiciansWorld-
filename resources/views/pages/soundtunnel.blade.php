@@ -353,7 +353,7 @@ page_hero(
             </div>
             <label class="st-consent">
               <input name="terms" type="checkbox" value="1" required />
-              <span>I confirm these details are accurate and understand this inquiry does not reserve the venue. Dates and pricing are confirmed by the SoundTunnel team. <b>*</b></span>
+              <span>I confirm these details are accurate and understand this inquiry does not reserve the venue. Dates and pricing are confirmed by the SoundTunnel team. By submitting, you agree to our <a href="<?= e(url("/privacy")) ?>">Privacy Policy</a> and <a href="<?= e(url("/terms")) ?>">Terms and Conditions</a>. <b>*</b></span>
             </label>
             <small class="st-consent-error"></small>
             <label class="hp-field" aria-hidden="true">Leave blank<input name="website" type="text" tabindex="-1" autocomplete="off" /></label>

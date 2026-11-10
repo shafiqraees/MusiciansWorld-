@@ -252,7 +252,7 @@ $choice = static function (string $legend, string $name, array $options, string 
               <input name="acknowledgment" type="checkbox" value="1" required />
               <span>
                 <strong style="display:block;margin-bottom:6px;color:#d5dced;letter-spacing:.04em">DJ SCHOOL INQUIRY ACKNOWLEDGMENT</strong>
-                I understand that submitting this form is an inquiry only and does not guarantee enrollment, class placement, instructor availability, or a specific schedule. Enrollment or lesson reservations are confirmed only after availability, pricing, required agreements, and payment have been completed. If the student is under 18, a parent or legal guardian must complete or approve any required enrollment documents.
+                I understand that submitting this form is an inquiry only and does not guarantee enrollment, class placement, instructor availability, or a specific schedule. Enrollment or lesson reservations are confirmed only after availability, pricing, required agreements, and payment have been completed. If the student is under 18, a parent or legal guardian must complete or approve any required enrollment documents. By submitting, you agree to our <a href="<?= e(url("/privacy")) ?>">Privacy Policy</a> and <a href="<?= e(url("/terms")) ?>">Terms and Conditions</a>.
                 <br /><br />I have read and understand the acknowledgment above. <b>*</b>
               </span>
             </label>

@@ -36,11 +36,16 @@ global $SITE, $MEDIA;
     <div class="grad-line"></div>
     <div class="wrap py-5 text-xs text-dim">
       <span>© 2026 <?= e($SITE["network"]) ?></span>
+      <p class="mt-2">
+        <a class="text-dim transition hover:text-mark" href="<?= e(url("/privacy")) ?>">Privacy Policy</a>
+        <span> · </span>
+        <a class="text-dim transition hover:text-mark" href="<?= e(url("/terms")) ?>">Terms and Conditions</a>
+      </p>
     </div>
   </footer>
   <script src="<?= e(url("assets/js/app.js")) ?>?v=20260924b" defer></script>
   <?php if (!empty($page_scripts)): foreach ($page_scripts as $src): ?>
-  <script src="<?= e(url($src)) ?>?v=20261105c" defer></script>
+  <script src="<?= e(url($src)) ?>?v=20261110a" defer></script>
   <?php endforeach; endif; ?>
 </body>
 </html>

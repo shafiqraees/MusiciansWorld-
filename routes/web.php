@@ -30,6 +30,8 @@ $pages = [
     '/events' => 'pages.events',
     '/about' => 'pages.about',
     '/contact' => 'pages.contact',
+    '/privacy' => 'pages.privacy',
+    '/terms' => 'pages.terms',
 ];
 foreach ($pages as $path => $view) {
     Route::view($path, $view);
@@ -43,6 +45,7 @@ foreach ([
     '/dj-school.php' => 'pages.dj-school',
     '/membership.php' => 'pages.membership', '/events.php' => 'pages.events',
     '/about.php' => 'pages.about', '/contact.php' => 'pages.contact',
+    '/privacy.php' => 'pages.privacy', '/terms.php' => 'pages.terms',
 ] as $path => $view) {
     Route::view($path, $view);
 }

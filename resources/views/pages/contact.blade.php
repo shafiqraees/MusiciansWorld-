@@ -50,6 +50,7 @@ page_hero(
         <textarea name="message" required rows="5" class="w-full border border-line bg-bg px-3 py-3"></textarea>
       </label>
       <button class="btn btn-mark" type="submit">Send</button>
+      <p class="text-xs text-dim">By submitting, you agree to our <a class="text-mark" href="<?= e(url("/privacy")) ?>">Privacy Policy</a> and <a class="text-mark" href="<?= e(url("/terms")) ?>">Terms and Conditions</a>.</p>
       <p class="form-msg text-sm text-dim" hidden></p>
     </form>
   </div>
