@@ -3,29 +3,32 @@
 namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
-use App\Models\Booking;
 use App\Models\Event;
+use App\Models\EventService;
 use App\Models\OrganizerProfile;
 use App\Models\PlatformSetting;
 use App\Models\Resource;
 use App\Models\Role;
-use App\Models\TicketType;
+use App\Services\MicrosoftCalendarService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use RuntimeException;
+use Illuminate\Validation\ValidationException;
 
 class EventController extends Controller
 {
     public function index()
     {
         $events = Event::with('ticketTypes')->where('status', 'published')->where('ends_at', '>', now())->orderBy('starts_at')->get();
+
         return view('events.index', compact('events'));
     }
 
     public function show(string $slug)
     {
         $event = Event::with('ticketTypes')->where('slug', $slug)->where('status', 'published')->firstOrFail();
+
         return view('events.show', compact('event'));
     }
 
@@ -36,8 +39,9 @@ class EventController extends Controller
             ['display_name' => $request->user()->name, 'status' => 'eligible']
         );
         $request->user()->roles()->syncWithoutDetaching([Role::where('name', 'organizer')->value('id')]);
-        $services = \App\Models\EventService::where('is_active', true)->get();
+        $services = EventService::where('is_active', true)->get();
         $feeBps = (int) $this->platformFeeFor($request->user());
+
         return view('events.create', compact('profile', 'services', 'feeBps'));
     }
 
@@ -67,8 +71,10 @@ class EventController extends Controller
             ]);
             $this->syncTicketTypes($event, $request->input('tickets', []));
             $this->syncServices($event, $request->input('services', []));
+
             return $event;
         });
+
         return redirect()->route('organizer.events.edit', $event)->with('success', 'Event draft saved.');
     }
 
@@ -76,14 +82,15 @@ class EventController extends Controller
     {
         abort_unless($event->organizer_id === $request->user()->id, 403);
         $event->load('ticketTypes', 'services', 'settlement', 'resource');
-        $services = \App\Models\EventService::where('is_active', true)->get();
+        $services = EventService::where('is_active', true)->get();
+
         return view('events.edit', compact('event', 'services'));
     }
 
     public function update(Request $request, Event $event)
     {
         abort_unless($event->organizer_id === $request->user()->id, 403);
-        if (!in_array($event->status, ['draft', 'changes_requested', 'rejected'], true)) {
+        if (! in_array($event->status, ['draft', 'changes_requested', 'rejected'], true)) {
             return back()->withErrors(['event' => 'This event is locked while MWCN reviews or runs it.']);
         }
         $before = $event->toArray();
@@ -91,13 +98,14 @@ class EventController extends Controller
         $this->syncTicketTypes($event, $request->input('tickets', []));
         $this->syncServices($event, $request->input('services', []));
         AuditLog::create(['actor_id' => $request->user()->id, 'action' => 'event.updated', 'auditable_type' => Event::class, 'auditable_id' => $event->id, 'before' => $before, 'after' => $event->fresh()->toArray(), 'ip_address' => $request->ip()]);
+
         return back()->with('success', 'Event draft updated.');
     }
 
-    public function submit(Request $request, Event $event)
+    public function submit(Request $request, Event $event, MicrosoftCalendarService $calendar)
     {
         abort_unless($event->organizer_id === $request->user()->id, 403);
-        if (!in_array($event->status, ['draft', 'changes_requested', 'rejected'], true)) {
+        if (! in_array($event->status, ['draft', 'changes_requested', 'rejected'], true)) {
             return back()->withErrors(['event' => 'This event has already been submitted.']);
         }
         if ($event->ticketTypes()->count() === 0) {
@@ -108,7 +116,16 @@ class EventController extends Controller
         }
         $event->update(['status' => 'submitted', 'submitted_at' => now()]);
         AuditLog::create(['actor_id' => $request->user()->id, 'action' => 'event.submitted', 'auditable_type' => Event::class, 'auditable_id' => $event->id, 'after' => $event->fresh()->toArray(), 'ip_address' => $request->ip()]);
-        return back()->with('success', 'Event submitted to MWCN for review.');
+        $calendar->syncEvent($event->fresh(['organizer', 'resource']));
+
+        return back()->with('success', 'Event submitted to MWCN for review. '.$this->calendarNote($event->fresh()));
+    }
+
+    private function calendarNote(Event $event): string
+    {
+        return $event->calendar_sync_status === 'synced'
+            ? 'It is on the Microsoft calendar.'
+            : 'Microsoft calendar was not updated.';
     }
 
     /** Times are entered and stored in the venue's local time (Arizona), matching the platform clock. */
@@ -130,15 +147,15 @@ class EventController extends Controller
         ]);
 
         foreach (['starts_at', 'ends_at', 'doors_at'] as $field) {
-            if (!empty($data[$field])) {
-                $data[$field] = \Illuminate\Support\Carbon::parse($data[$field], self::INPUT_TIMEZONE);
+            if (! empty($data[$field])) {
+                $data[$field] = Carbon::parse($data[$field], self::INPUT_TIMEZONE);
             }
         }
         if ($data['starts_at']->isPast()) {
-            throw \Illuminate\Validation\ValidationException::withMessages(['starts_at' => 'The start time must be in the future.']);
+            throw ValidationException::withMessages(['starts_at' => 'The start time must be in the future.']);
         }
-        if (!empty($data['doors_at']) && $data['doors_at']->gt($data['starts_at'])) {
-            throw \Illuminate\Validation\ValidationException::withMessages(['doors_at' => 'Doors must open before the event starts.']);
+        if (! empty($data['doors_at']) && $data['doors_at']->gt($data['starts_at'])) {
+            throw ValidationException::withMessages(['doors_at' => 'Doors must open before the event starts.']);
         }
 
         return $data;
@@ -147,7 +164,7 @@ class EventController extends Controller
     private function syncTicketTypes(Event $event, array $tickets): void
     {
         foreach ($tickets as $row) {
-            if (empty($row['name']) || !isset($row['quantity'])) {
+            if (empty($row['name']) || ! isset($row['quantity'])) {
                 continue;
             }
             $event->ticketTypes()->updateOrCreate(
@@ -157,7 +174,7 @@ class EventController extends Controller
                     'price_cents' => (int) round(((float) ($row['price'] ?? 0)) * 100),
                     'quantity' => (int) $row['quantity'], 'per_order_limit' => (int) ($row['per_order_limit'] ?? 10),
                     'sales_start_at' => $row['sales_start_at'] ?? null, 'sales_end_at' => $row['sales_end_at'] ?? null,
-                    'status' => 'active', 'is_refundable' => !empty($row['is_refundable']),
+                    'status' => 'active', 'is_refundable' => ! empty($row['is_refundable']),
                 ]
             );
         }
@@ -167,7 +184,7 @@ class EventController extends Controller
     {
         $sync = [];
         foreach ($services as $serviceId => $quantity) {
-            $service = \App\Models\EventService::find($serviceId);
+            $service = EventService::find($serviceId);
             if ($service && (int) $quantity > 0) {
                 $sync[$serviceId] = ['quantity' => (int) $quantity, 'unit_price_cents' => $service->price_cents, 'status' => 'selected'];
             }

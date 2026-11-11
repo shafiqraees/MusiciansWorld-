@@ -35,6 +35,7 @@ return [
         'client_secret' => env('MICROSOFT_CLIENT_SECRET'),
         'studio_calendar' => env('MICROSOFT_STUDIO_CALENDAR'),
         'soundtunnel_calendar' => env('MICROSOFT_SOUNDTUNNEL_CALENDAR'),
+        'events_calendar' => env('MICROSOFT_EVENTS_CALENDAR'),
     ],
 
     'mwcn' => [

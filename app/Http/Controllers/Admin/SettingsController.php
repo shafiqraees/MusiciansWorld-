@@ -68,6 +68,7 @@ class SettingsController extends Controller
             'is_public' => $request->boolean('is_public'),
         ]);
         $this->audit($request, 'setting.created', $setting, null, $data['reason']);
+
         return back()->with('success', 'Setting "'.$setting->key.'" created.');
     }
 
@@ -86,6 +87,7 @@ class SettingsController extends Controller
         $before = $setting->toArray();
         $setting->update(['value' => $this->normaliseValue($type, $data['value'] ?? null), 'type' => $type, 'is_public' => $request->boolean('is_public')]);
         $this->audit($request, 'setting.updated', $setting, $before, $data['reason']);
+
         return back()->with('success', 'Setting "'.$setting->key.'" updated.');
     }
 
@@ -111,6 +113,7 @@ class SettingsController extends Controller
         $before = $resource->toArray();
         $resource->update(['name' => $data['name'], 'type' => $data['type'], 'timezone' => $data['timezone'], 'capacity' => $data['capacity'] ?? null, 'calendar_id' => $data['calendar_id'] ?? null, 'is_active' => $request->boolean('is_active')]);
         $this->audit($request, 'resource.updated', $resource, $before, $data['reason']);
+
         return back()->with('success', $resource->name.' updated.');
     }
 
@@ -123,6 +126,7 @@ class SettingsController extends Controller
             'is_active' => $request->boolean('is_active'),
         ]);
         $this->audit($request, 'pricing_rule.created', $rule, null, $data['reason']);
+
         return back()->with('success', 'Price "'.$rule->name.'" added.');
     }
 
@@ -136,13 +140,15 @@ class SettingsController extends Controller
             'is_active' => $request->boolean('is_active'),
         ]);
         $this->audit($request, 'pricing_rule.updated', $rule, $before, $data['reason']);
+
         return back()->with('success', 'Price "'.$rule->name.'" updated.');
     }
 
     public function availability(Request $request)
     {
         $showPast = $request->boolean('past');
-        $holds = AvailabilityBlock::with('resource')->when(!$showPast, fn ($q) => $q->where('ends_at', '>', now()))->orderBy($showPast ? 'ends_at' : 'starts_at', $showPast ? 'desc' : 'asc');
+        $holds = AvailabilityBlock::with('resource')->when(! $showPast, fn ($q) => $q->where('ends_at', '>', now()))->orderBy($showPast ? 'ends_at' : 'starts_at', $showPast ? 'desc' : 'asc');
+
         return view('admin.settings.availability', [
             'holds' => $holds->paginate(25)->withQueryString(),
             'resources' => Resource::orderBy('name')->get(),
@@ -160,6 +166,7 @@ class SettingsController extends Controller
         ]);
         $hold = AvailabilityBlock::create($data + ['created_by' => $request->user()->id]);
         $this->audit($request, 'availability_hold.created', $hold, null, $data['reason']);
+
         return back()->with('success', 'Availability hold created.');
     }
 
@@ -168,6 +175,7 @@ class SettingsController extends Controller
         $before = $hold->toArray();
         $hold->delete();
         $this->audit($request, 'availability_hold.deleted', $hold, $before, 'Removed by administrator', []);
+
         return back()->with('success', 'Availability hold removed.');
     }
 
@@ -183,14 +191,20 @@ class SettingsController extends Controller
     private function integrationStatus(): array
     {
         $stripeSecret = (string) config('services.stripe.secret');
+
         return [
             ['name' => 'Stripe payments', 'connected' => $stripeSecret !== '', 'mode' => str_starts_with($stripeSecret, 'sk_live') ? 'Live mode' : ($stripeSecret ? 'Test mode' : 'Not configured'),
                 'detail' => config('services.stripe.webhook_secret') ? 'Webhook signing secret present' : 'Webhook signing secret missing', 'env' => ['STRIPE_KEY', 'STRIPE_SECRET', 'STRIPE_WEBHOOK_SECRET']],
             ['name' => 'Email delivery', 'connected' => config('mail.default') === 'smtp' && config('mail.mailers.smtp.host'), 'mode' => ucfirst((string) config('mail.default')),
                 'detail' => (string) config('mail.mailers.smtp.host').' · from '.config('mail.from.address'), 'env' => ['MAIL_HOST', 'MAIL_USERNAME', 'MAIL_FROM_ADDRESS']],
             ['name' => 'Microsoft 365 calendars', 'connected' => (bool) config('services.microsoft.client_id'), 'mode' => config('services.microsoft.client_id') ? 'Entra app registered' : 'Not configured',
-                'detail' => config('services.microsoft.studio_calendar') ? 'Studio A calendar mapped' : 'Calendar mailboxes not mapped', 'env' => ['MICROSOFT_TENANT_ID', 'MICROSOFT_CLIENT_ID', 'MICROSOFT_CLIENT_SECRET']],
-            ['name' => 'Background queue', 'connected' => !IntegrationJob::where('status', 'failed')->exists(), 'mode' => ucfirst((string) config('queue.default')).' driver',
+                'detail' => collect([
+                    config('services.microsoft.studio_calendar') ? 'Studio A mapped' : null,
+                    config('services.microsoft.soundtunnel_calendar') ? 'SoundTunnel mapped' : null,
+                    config('services.microsoft.events_calendar') ? 'Events calendar mapped' : null,
+                ])->filter()->implode(' · ') ?: 'Calendar mailboxes not mapped',
+                'env' => ['MICROSOFT_TENANT_ID', 'MICROSOFT_CLIENT_ID', 'MICROSOFT_CLIENT_SECRET', 'MICROSOFT_EVENTS_CALENDAR']],
+            ['name' => 'Background queue', 'connected' => ! IntegrationJob::where('status', 'failed')->exists(), 'mode' => ucfirst((string) config('queue.default')).' driver',
                 'detail' => IntegrationJob::where('status', 'failed')->count().' failed automation jobs', 'env' => ['QUEUE_CONNECTION']],
         ];
     }

@@ -14,6 +14,8 @@ use RuntimeException;
 
 class TicketService
 {
+    public function __construct(private CustomerCalendarInvite $calendarInvite) {}
+
     public function createOrder(Event $event, array $selections, array $buyer): Order
     {
         return DB::transaction(function () use ($event, $selections, $buyer) {
@@ -90,6 +92,13 @@ class TicketService
             }
             $platformFee = (int) round($order->subtotal_cents * $order->event->platform_fee_bps / 10000);
             $order->update(['status' => 'completed', 'payment_status' => 'paid', 'stripe_payment_intent_id' => $paymentIntent, 'platform_fee_cents' => $platformFee]);
+            $orderId = $order->id;
+            DB::afterCommit(function () use ($orderId) {
+                $completed = Order::with('event')->find($orderId);
+                if ($completed) {
+                    $this->calendarInvite->emailOrder($completed);
+                }
+            });
             foreach ([
                 'gross_ticket_revenue' => $order->subtotal_cents,
                 'mwcn_platform_fee' => $platformFee,

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Booking;
 use App\Services\BookingService;
+use App\Services\CustomerCalendarInvite;
 use App\Services\MicrosoftCalendarService;
 use App\Services\StripeService;
 use Illuminate\Http\Request;
@@ -23,7 +24,7 @@ class BookingPageController extends Controller
         return view('book.confirm', compact('booking'));
     }
 
-    public function success(Request $request, StripeService $stripe, BookingService $bookings, MicrosoftCalendarService $calendar)
+    public function success(Request $request, StripeService $stripe, BookingService $bookings, MicrosoftCalendarService $calendar, CustomerCalendarInvite $invite)
     {
         $booking = null;
         $verified = false;
@@ -43,7 +44,21 @@ class BookingPageController extends Controller
             }
         }
 
-        return view('book.success', compact('booking', 'verified'));
+        $calendarLinks = $booking && $booking->payment_status === 'paid'
+            ? $invite->bookingLinks($booking)
+            : null;
+
+        return view('book.success', compact('booking', 'verified', 'calendarLinks'));
+    }
+
+    public function calendar(string $reference, CustomerCalendarInvite $invite)
+    {
+        $booking = Booking::where('reference', $reference)->where('payment_status', 'paid')->with('resource')->firstOrFail();
+
+        return response($invite->bookingIcs($booking), 200, [
+            'Content-Type' => 'text/calendar; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="'.$booking->reference.'.ics"',
+        ]);
     }
 
     public function cancelled(Request $request)

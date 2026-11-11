@@ -55,6 +55,7 @@ Route::get('/book/availability', [BookingController::class, 'availability'])->na
 Route::post('/bookings', [BookingController::class, 'store'])->name('booking.store');
 Route::get('/book/confirm/{id}', [BookingPageController::class, 'confirm'])->name('booking.confirm');
 Route::get('/book/success', [BookingPageController::class, 'success'])->name('booking.success');
+Route::get('/book/{reference}/calendar.ics', [BookingPageController::class, 'calendar'])->name('booking.calendar');
 Route::get('/book/cancelled', [BookingPageController::class, 'cancelled'])->name('booking.cancelled');
 Route::get('/book/success.php', [BookingPageController::class, 'success']);
 Route::get('/book/cancelled.php', [BookingPageController::class, 'cancelled']);
@@ -102,6 +103,7 @@ Route::get('/events/live', [EventController::class, 'index'])->name('events.live
 Route::get('/events/{slug}', [EventController::class, 'show'])->name('events.show');
 Route::post('/events/{event}/tickets', [TicketController::class, 'purchase'])->middleware('auth')->name('tickets.purchase');
 Route::get('/tickets/success', [TicketController::class, 'success'])->name('tickets.success');
+Route::get('/tickets/{reference}/calendar.ics', [TicketController::class, 'calendar'])->name('tickets.calendar');
 Route::get('/check-in/{ticket}', [TicketController::class, 'checkIn'])->middleware(['auth', 'role:check_in,operations,super_admin'])->name('tickets.check-in');
 
 // Internal admin / staff sign-in lives at /admin/login (separate from the customer sign-in at /login).

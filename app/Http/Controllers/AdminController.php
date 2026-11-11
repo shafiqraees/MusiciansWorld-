@@ -179,7 +179,7 @@ class AdminController extends Controller
         ]);
     }
 
-    public function updateEvent(Request $request, Event $event)
+    public function updateEvent(Request $request, Event $event, MicrosoftCalendarService $calendar)
     {
         $data = $request->validate([
             'title' => ['required', 'string', 'max:190'],
@@ -207,11 +207,15 @@ class AdminController extends Controller
             'teardown_minutes' => (int) ($data['teardown_minutes'] ?? 0),
         ]);
         $this->audit($request, 'event.updated_by_admin', $event, $before, $data['reason']);
+        $fresh = $event->fresh(['organizer', 'resource']);
+        if (in_array($fresh->status, ['submitted', 'approved', 'published'], true)) {
+            $calendar->syncEvent($fresh);
+        }
 
         return back()->with('success', 'Event "'.$event->title.'" updated.');
     }
 
-    public function reviewEvent(Request $request, Event $event)
+    public function reviewEvent(Request $request, Event $event, MicrosoftCalendarService $calendar)
     {
         $data = $request->validate(['action' => ['required', 'in:approve,reject,request_changes,suspend,publish,complete'], 'notes' => ['nullable', 'string', 'max:3000']]);
         $before = $event->toArray();
@@ -254,8 +258,18 @@ class AdminController extends Controller
             return back()->withErrors(['action' => $exception->getMessage()])->with('modal', 'event-'.$event->id);
         }
         $this->audit($request, 'event.'.$data['action'], $event, $before, $data['notes'] ?? null);
+        $fresh = $event->fresh(['organizer', 'resource']);
+        if (in_array($fresh->status, ['approved', 'published'], true)) {
+            $calendar->syncEvent($fresh);
+        } elseif (in_array($fresh->status, ['rejected', 'suspended', 'changes_requested'], true)) {
+            $calendar->cancelEvent($fresh);
+        }
+        $fresh = $fresh->fresh();
+        $note = in_array($fresh->status, ['approved', 'published'], true)
+            ? ($fresh->calendar_sync_status === 'synced' ? ' It is on the Microsoft calendar.' : ' Microsoft calendar was not updated.')
+            : '';
 
-        return back()->with('success', 'Event "'.$event->title.'" is now '.str_replace('_', ' ', $event->fresh()->status).'.');
+        return back()->with('success', 'Event "'.$fresh->title.'" is now '.str_replace('_', ' ', $fresh->status).'.'.$note);
     }
 
     public function failures()

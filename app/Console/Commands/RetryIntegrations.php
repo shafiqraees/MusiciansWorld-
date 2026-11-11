@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Booking;
+use App\Models\Event;
 use App\Models\IntegrationJob;
 use App\Services\MicrosoftCalendarService;
 use App\Services\NotificationService;
@@ -12,6 +13,7 @@ use Throwable;
 class RetryIntegrations extends Command
 {
     protected $signature = 'mwcn:retry-integrations';
+
     protected $description = 'Retry failed MWCN calendar and email integrations safely';
 
     public function handle(MicrosoftCalendarService $calendar, NotificationService $notifications): int
@@ -34,10 +36,22 @@ class RetryIntegrations extends Command
                         if ($booking->fresh()->calendar_sync_status !== 'cancelled') {
                             throw new \RuntimeException($booking->fresh()->calendar_sync_error ?: 'Calendar cancellation failed.');
                         }
+                    } elseif ($job->integration === 'microsoft_graph' && $job->action === 'sync_event') {
+                        $event = Event::with(['organizer', 'resource'])->findOrFail($job->subject_id);
+                        $calendar->syncEvent($event);
+                        if ($event->fresh()->calendar_sync_status !== 'synced') {
+                            throw new \RuntimeException($event->fresh()->calendar_sync_error ?: 'Calendar sync failed.');
+                        }
+                    } elseif ($job->integration === 'microsoft_graph' && $job->action === 'cancel_event') {
+                        $event = Event::with(['organizer', 'resource'])->findOrFail($job->subject_id);
+                        $calendar->cancelEvent($event);
+                        if ($event->fresh()->calendar_sync_status !== 'cancelled') {
+                            throw new \RuntimeException($event->fresh()->calendar_sync_error ?: 'Calendar cancellation failed.');
+                        }
                     } elseif ($job->integration === 'email' && str_ends_with($job->action, '_welcome')) {
                         $type = str_starts_with($job->action, 'dj_') ? 'dj' : 'soundtunnel';
                         $payload = $job->payload;
-                        if (!$notifications->welcome($payload['email'], $payload['name'], $type, $payload['detail'] ?? '', false)) {
+                        if (! $notifications->welcome($payload['email'], $payload['name'], $type, $payload['detail'] ?? '', false)) {
                             throw new \RuntimeException('Email delivery failed.');
                         }
                     } else {
@@ -48,6 +62,7 @@ class RetryIntegrations extends Command
                     $job->update(['status' => 'failed', 'last_error' => $exception->getMessage(), 'next_attempt_at' => now()->addMinutes(min(60, 5 * $job->attempts))]);
                 }
             });
+
         return self::SUCCESS;
     }
 }

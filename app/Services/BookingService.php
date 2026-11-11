@@ -16,7 +16,7 @@ use RuntimeException;
 
 class BookingService
 {
-    public function __construct(private ClientPricing $pricing) {}
+    public function __construct(private ClientPricing $pricing, private CustomerCalendarInvite $calendarInvite) {}
 
     public function busyRanges(Resource $resource, string $date): array
     {
@@ -253,13 +253,33 @@ class BookingService
 
     public function confirm(Booking $booking, ?string $paymentIntent = null): void
     {
-        $booking->update([
-            'status' => 'confirmed',
-            'payment_status' => 'paid',
-            'hold_expires_at' => null,
-            'stripe_payment_intent_id' => $paymentIntent ?: $booking->stripe_payment_intent_id,
-            'calendar_sync_status' => 'pending',
-        ]);
+        $paymentIntentId = $paymentIntent ?: $booking->stripe_payment_intent_id;
+        $confirmedNow = Booking::query()
+            ->whereKey($booking->id)
+            ->where('payment_status', '!=', 'paid')
+            ->update([
+                'status' => 'confirmed',
+                'payment_status' => 'paid',
+                'hold_expires_at' => null,
+                'stripe_payment_intent_id' => $paymentIntentId,
+                'calendar_sync_status' => 'pending',
+                'updated_at' => now(),
+            ]);
+
+        if (! $confirmedNow) {
+            $booking->update(['stripe_payment_intent_id' => $paymentIntentId]);
+
+            return;
+        }
+
+        $booking->refresh();
         $this->pricing->markUsedForBooking($booking);
+        $bookingId = $booking->id;
+        DB::afterCommit(function () use ($bookingId) {
+            $confirmed = Booking::with('resource')->find($bookingId);
+            if ($confirmed) {
+                $this->calendarInvite->emailBooking($confirmed);
+            }
+        });
     }
 }
