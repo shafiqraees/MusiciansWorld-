@@ -8,6 +8,7 @@ use App\Models\Resource;
 use App\Services\BookingService;
 use App\Services\ClientPricing;
 use App\Services\CustomerAccountService;
+use App\Services\NotificationService;
 use App\Services\StripeService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
@@ -117,7 +118,7 @@ class BookingController extends Controller
         return response()->json($this->legacyPayload($booking));
     }
 
-    public function store(Request $request, BookingService $bookings, StripeService $stripe, CustomerAccountService $accounts, ClientPricing $pricing)
+    public function store(Request $request, BookingService $bookings, StripeService $stripe, CustomerAccountService $accounts, ClientPricing $pricing, NotificationService $notifications)
     {
         $data = $request->validate([
             'resourceId' => ['required', 'in:studio-a'],
@@ -154,6 +155,7 @@ class BookingController extends Controller
             }
             $session = $stripe->bookingCheckout($booking->load('resource'));
             $booking->update(['stripe_checkout_session_id' => $session->id]);
+            $notifications->bookingLeadAfterResponse($booking);
 
             $localStart = $booking->starts_at->copy()->timezone($booking->resource->timezone);
             $localEnd = $booking->ends_at->copy()->timezone($booking->resource->timezone);

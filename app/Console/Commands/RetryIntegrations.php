@@ -48,6 +48,21 @@ class RetryIntegrations extends Command
                         if ($event->fresh()->calendar_sync_status !== 'cancelled') {
                             throw new \RuntimeException($event->fresh()->calendar_sync_error ?: 'Calendar cancellation failed.');
                         }
+                    } elseif ($job->integration === 'email' && $job->action === 'booking_customer') {
+                        $booking = Booking::with('resource')->findOrFail($job->subject_id);
+                        if (! $notifications->bookingCustomer($booking, false)) {
+                            throw new \RuntimeException('Email delivery failed.');
+                        }
+                    } elseif ($job->integration === 'email' && $job->action === 'booking_calendar') {
+                        $booking = Booking::with('resource')->findOrFail($job->subject_id);
+                        if (! $notifications->bookingCalendar($booking, false)) {
+                            throw new \RuntimeException('Email delivery failed.');
+                        }
+                    } elseif ($job->integration === 'email' && $job->action === 'booking_admin') {
+                        $booking = Booking::with('resource')->findOrFail($job->subject_id);
+                        if (! $notifications->bookingAdmin($booking, false)) {
+                            throw new \RuntimeException('Email delivery failed.');
+                        }
                     } elseif ($job->integration === 'email' && str_ends_with($job->action, '_welcome')) {
                         $type = str_starts_with($job->action, 'dj_') ? 'dj' : 'soundtunnel';
                         $payload = $job->payload;

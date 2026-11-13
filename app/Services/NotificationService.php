@@ -2,6 +2,10 @@
 
 namespace App\Services;
 
+use App\Mail\BookingAdminMail;
+use App\Mail\BookingCalendarMail;
+use App\Mail\BookingCustomerMail;
+use App\Models\Booking;
 use App\Models\IntegrationJob;
 use App\Models\User;
 use Illuminate\Support\Facades\Mail;
@@ -10,6 +14,8 @@ use Throwable;
 class NotificationService
 {
     private static ?float $lastSendAt = null;
+
+    public function __construct(private CustomerCalendarInvite $calendarInvites) {}
 
     public function welcomeAfterResponse(string $email, string $name, string $type, string $detail = ''): void
     {
@@ -24,6 +30,88 @@ class NotificationService
     public function customerAccountAfterResponse(User $user, string $temporaryPassword): void
     {
         app()->terminating(fn () => $this->customerAccount($user, $temporaryPassword));
+    }
+
+    public function bookingLeadAfterResponse(Booking $booking): void
+    {
+        $bookingId = $booking->id;
+        app()->terminating(function () use ($bookingId): void {
+            $fresh = Booking::with('resource')->find($bookingId);
+            if (! $fresh || $fresh->status !== 'pending_payment') {
+                return;
+            }
+
+            $this->bookingCustomer($fresh);
+            $this->bookingCalendar($fresh);
+            $this->bookingAdmin($fresh);
+        });
+    }
+
+    public function bookingCustomer(Booking $booking, bool $recordFailure = true): bool
+    {
+        try {
+            $this->throttle();
+            Mail::to($booking->customer_email, $booking->customer_name)->send(new BookingCustomerMail($booking));
+            $this->markSent();
+
+            return true;
+        } catch (Throwable $exception) {
+            report($exception);
+            if ($recordFailure) {
+                $this->recordBookingMailFailure($booking, 'booking_customer', $exception->getMessage());
+            }
+
+            return false;
+        }
+    }
+
+    public function bookingCalendar(Booking $booking, bool $recordFailure = true): bool
+    {
+        if (! filled($booking->customer_email)) {
+            return false;
+        }
+
+        try {
+            $this->throttle();
+            Mail::to($booking->customer_email, $booking->customer_name)->send(new BookingCalendarMail(
+                $booking,
+                $this->calendarInvites->bookingLinks($booking),
+                $this->calendarInvites->bookingIcs($booking),
+            ));
+            $this->markSent();
+
+            return true;
+        } catch (Throwable $exception) {
+            report($exception);
+            if ($recordFailure) {
+                $this->recordBookingMailFailure($booking, 'booking_calendar', $exception->getMessage());
+            }
+
+            return false;
+        }
+    }
+
+    public function bookingAdmin(Booking $booking, bool $recordFailure = true): bool
+    {
+        $inbox = (string) config('mail.from.address');
+        if ($inbox === '') {
+            return false;
+        }
+
+        try {
+            $this->throttle();
+            Mail::to($inbox)->send(new BookingAdminMail($booking));
+            $this->markSent();
+
+            return true;
+        } catch (Throwable $exception) {
+            report($exception);
+            if ($recordFailure) {
+                $this->recordBookingMailFailure($booking, 'booking_admin', $exception->getMessage());
+            }
+
+            return false;
+        }
     }
 
     public function customerAccount(User $user, string $temporaryPassword, bool $recordFailure = true): bool
@@ -108,6 +196,21 @@ class NotificationService
     private function markSent(): void
     {
         self::$lastSendAt = microtime(true);
+    }
+
+    private function recordBookingMailFailure(Booking $booking, string $action, string $message): void
+    {
+        IntegrationJob::create([
+            'integration' => 'email',
+            'action' => $action,
+            'subject_type' => Booking::class,
+            'subject_id' => $booking->id,
+            'status' => 'failed',
+            'attempts' => 1,
+            'next_attempt_at' => now()->addMinutes(10),
+            'last_error' => $message,
+            'payload' => ['email' => $booking->customer_email, 'name' => $booking->customer_name],
+        ]);
     }
 
     public function admin(string $subject, array $submission): bool

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Mail\BookingDetails;
 use App\Models\Booking;
 use App\Models\Order;
 use Carbon\CarbonInterface;
@@ -11,7 +12,7 @@ use Throwable;
 class CustomerCalendarInvite
 {
     /**
-     * @return array{google: string, outlook: string, download: string}
+     * @return array{google: string, outlook: string, yahoo: string, download: string}
      */
     public function bookingLinks(Booking $booking): array
     {
@@ -19,7 +20,7 @@ class CustomerCalendarInvite
     }
 
     /**
-     * @return array{google: string, outlook: string, download: string}
+     * @return array{google: string, outlook: string, yahoo: string, download: string}
      */
     public function orderLinks(Order $order): array
     {
@@ -51,6 +52,7 @@ class CustomerCalendarInvite
             $links,
             $this->bookingIcs($booking),
             $booking->reference.'.ics',
+            BookingDetails::rows($booking),
         );
     }
 
@@ -74,13 +76,13 @@ class CustomerCalendarInvite
     }
 
     /**
-     * @param  array{title: string, details: string, location: string, start: CarbonInterface, end: CarbonInterface, timezone: string}  $entry
-     * @param  array{google: string, outlook: string, download: string}  $links
+     * @param  array{google: string, outlook: string, yahoo: string, download: string}  $links
+     * @param  list<array{label: string, value: string}>  $rows
      */
-    private function send(string $email, string $name, string $subject, string $headline, array $links, string $ics, string $filename): void
+    private function send(string $email, string $name, string $subject, string $headline, array $links, string $ics, string $filename, array $rows = []): void
     {
         try {
-            Mail::send('emails.calendar-invite', compact('headline', 'links', 'name'), function ($message) use ($email, $name, $subject, $ics, $filename) {
+            Mail::send('emails.calendar-invite', compact('headline', 'links', 'name', 'rows'), function ($message) use ($email, $name, $subject, $ics, $filename) {
                 $message->to($email, $name)
                     ->subject($subject)
                     ->attachData($ics, $filename, ['mime' => 'text/calendar; charset=UTF-8; method=PUBLISH']);
@@ -92,7 +94,7 @@ class CustomerCalendarInvite
 
     /**
      * @param  array{title: string, details: string, location: string, start: CarbonInterface, end: CarbonInterface, timezone: string}  $entry
-     * @return array{google: string, outlook: string, download: string}
+     * @return array{google: string, outlook: string, yahoo: string, download: string}
      */
     private function links(array $entry, string $download): array
     {
@@ -110,8 +112,14 @@ class CustomerCalendarInvite
             .'&enddt='.rawurlencode($entry['end']->format('Y-m-d\TH:i:s').'-07:00')
             .'&body='.rawurlencode($entry['details'])
             .'&location='.rawurlencode($entry['location']);
+        $yahoo = 'https://calendar.yahoo.com/?v=60&view=d&type=20'
+            .'&title='.rawurlencode($entry['title'])
+            .'&st='.rawurlencode($start)
+            .'&et='.rawurlencode($end)
+            .'&desc='.rawurlencode($entry['details'])
+            .'&in_loc='.rawurlencode($entry['location']);
 
-        return ['google' => $google, 'outlook' => $outlook, 'download' => $download];
+        return ['google' => $google, 'outlook' => $outlook, 'yahoo' => $yahoo, 'download' => $download];
     }
 
     /**
@@ -148,17 +156,16 @@ class CustomerCalendarInvite
     {
         $booking->loadMissing('resource');
         $timezone = $booking->resource?->timezone ?: 'America/Phoenix';
-        $location = $booking->resource?->name ?: 'MusiciansWorld';
+        $place = $booking->resource?->name ?: 'Studio A';
+        $rows = BookingDetails::rows($booking);
 
         return [
-            'title' => $location.' — '.$booking->customer_name,
-            'details' => implode("\n", array_filter([
-                'Booking '.$booking->reference,
-                $booking->customer_name,
-                $booking->customer_email,
-                $booking->notes,
-            ], fn ($line) => filled($line))),
-            'location' => $location,
+            'title' => $place.' — '.$booking->customer_name,
+            'details' => implode("\n", array_map(
+                fn (array $row): string => $row['label'].': '.$row['value'],
+                $rows,
+            )),
+            'location' => $place.', '.LOCATION,
             'start' => $booking->starts_at->copy(),
             'end' => $booking->ends_at->copy(),
             'timezone' => $timezone,

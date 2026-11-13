@@ -37,6 +37,9 @@ class CustomerCalendarInviteTest extends TestCase
         $this->assertStringContainsString('https://outlook.office.com/calendar/0/deeplink/compose', $links['outlook']);
         $this->assertStringContainsString('startdt=2026-12-15T18%3A00%3A00-07%3A00', $links['outlook']);
         $this->assertStringContainsString('/book/BK-100/calendar.ics', $links['download']);
+        $this->assertStringContainsString('https://calendar.yahoo.com/?v=60', $links['yahoo']);
+        $this->assertStringContainsString('st=20261215T180000', $links['yahoo']);
+        $this->assertStringContainsString('et=20261215T200000', $links['yahoo']);
     }
 
     public function test_a_ticket_order_keeps_the_event_title_and_time(): void

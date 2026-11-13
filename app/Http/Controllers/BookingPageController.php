@@ -53,7 +53,9 @@ class BookingPageController extends Controller
 
     public function calendar(string $reference, CustomerCalendarInvite $invite)
     {
-        $booking = Booking::where('reference', $reference)->where('payment_status', 'paid')->with('resource')->firstOrFail();
+        $booking = Booking::where('reference', $reference)->with('resource')->firstOrFail();
+        $heldForPayment = $booking->status === 'pending_payment' && $booking->hold_expires_at?->isFuture();
+        abort_unless($booking->payment_status === 'paid' || $heldForPayment, 404);
 
         return response($invite->bookingIcs($booking), 200, [
             'Content-Type' => 'text/calendar; charset=UTF-8',
