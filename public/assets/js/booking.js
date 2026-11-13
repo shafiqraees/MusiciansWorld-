@@ -350,6 +350,30 @@
     return `<div class="book-confirm-row"><dt>${label}</dt><dd>${escapeHtml(value || "None")}</dd></div>`;
   }
 
+  function calendarStamp(iso) {
+    const compact = String(iso || "").replace(/[-:]/g, "");
+    return compact.length === 13 ? compact + "00" : compact;
+  }
+
+  function calendarUrls() {
+    const title = "Studio A — " + state.name;
+    const location = (window.MW && window.MW.locationLabel) || "Studio A";
+    const details = [state.email, state.phone, state.notes].filter(Boolean).join("\n");
+    const google = "https://calendar.google.com/calendar/render?action=TEMPLATE"
+      + "&text=" + encodeURIComponent(title)
+      + "&dates=" + encodeURIComponent(calendarStamp(state.fromIso) + "/" + calendarStamp(state.toIso))
+      + "&ctz=" + encodeURIComponent("America/Phoenix")
+      + "&details=" + encodeURIComponent(details)
+      + "&location=" + encodeURIComponent(location);
+    const outlook = "https://outlook.office.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent"
+      + "&subject=" + encodeURIComponent(title)
+      + "&startdt=" + encodeURIComponent(state.fromIso + ":00-07:00")
+      + "&enddt=" + encodeURIComponent(state.toIso + ":00-07:00")
+      + "&body=" + encodeURIComponent(details)
+      + "&location=" + encodeURIComponent(location);
+    return { google, outlook };
+  }
+
   function renderConfirm() {
     return `
       <div class="book-modal" role="presentation">
@@ -373,6 +397,9 @@
             ${confirmRow("Notes", state.notes)}
           </dl>
           ${state.pricing && state.pricing.message ? `<p class="mt-3 text-sm">${escapeHtml(state.pricing.message)}</p>` : ""}
+          <p class="mt-4 text-sm">Add this time to your calendar. The email is sent after payment.</p>
+          <p class="mt-3"><a class="btn btn-ghost" href="${calendarUrls().google}" target="_blank" rel="noopener">Add to Google Calendar</a></p>
+          <p class="mt-2"><a class="btn btn-ghost" href="${calendarUrls().outlook}" target="_blank" rel="noopener">Add to Microsoft Calendar</a></p>
           ${state.error ? `<p class="text-sm text-danger">${escapeHtml(state.error)}</p>` : ""}
           <div class="mt-5 flex gap-2">
             <button class="btn btn-ghost flex-1" type="button" data-act="dismiss" ${state.busy ? "disabled" : ""}>Back</button>

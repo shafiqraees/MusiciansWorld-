@@ -43,9 +43,9 @@ global $SITE, $MEDIA;
       </p>
     </div>
   </footer>
-  <script src="<?= e(url("assets/js/app.js")) ?>?v=20260924b" defer></script>
+  <script src="<?= e(url("assets/js/app.js")) ?>?v=20261113a" defer></script>
   <?php if (!empty($page_scripts)): foreach ($page_scripts as $src): ?>
-  <script src="<?= e(url($src)) ?>?v=20261110a" defer></script>
+  <script src="<?= e(url($src)) ?>?v=20261111a" defer></script>
   <?php endforeach; endif; ?>
 </body>
 </html>

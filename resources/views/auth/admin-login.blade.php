@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url('assets/css/admin-portal.css') }}?v=20261006a">
+  <link rel="stylesheet" href="{{ url('assets/css/admin-portal.css') }}?v=20261113a">
 </head>
 <body class="mw-admin-body">
 <div class="a-auth">
@@ -42,7 +42,15 @@
       <form method="post" action="{{ route('admin.login.attempt') }}" class="a-auth-form">
         @csrf
         <label class="a-field"><span>Work email</span><input class="a-input" type="text" name="email" value="{{ old('email') }}" required autocomplete="username" autofocus placeholder="you@musiciansworld.com"></label>
-        <label class="a-field"><span>Password</span><input class="a-input" type="password" name="password" required autocomplete="current-password" placeholder="••••••••••"></label>
+        <label class="a-field"><span>Password</span>
+          <span class="a-password">
+            <input class="a-input" id="admin-password" type="password" name="password" required autocomplete="current-password" placeholder="Your password">
+            <button class="a-eye" type="button" data-reveal-password aria-controls="admin-password" aria-pressed="false" aria-label="Show password">
+              <svg data-eye-open viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg data-eye-shut class="is-hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 10.6A3 3 0 0 0 12 15a3 3 0 0 0 2.4-1.2"/><path d="M9.9 5.2A10.8 10.8 0 0 1 12 5c6.5 0 10 7 10 7a18.2 18.2 0 0 1-3.2 4.2"/><path d="M6.1 6.1C3.8 7.8 2 12 2 12s3.5 7 10 7a10.6 10.6 0 0 0 4.1-.8"/></svg>
+            </button>
+          </span>
+        </label>
         <div class="a-auth-meta">
           <label class="a-check is-inline"><input type="checkbox" name="remember" value="1"> Keep me signed in</label>
           <a class="a-link" href="{{ route('password.request') }}">Forgot password?</a>
@@ -53,6 +61,6 @@
     </div>
   </main>
 </div>
-<script src="{{ url('assets/js/admin-portal.js') }}?v=20261006a" defer></script>
+<script src="{{ url('assets/js/admin-portal.js') }}?v=20261113a" defer></script>
 </body>
 </html>

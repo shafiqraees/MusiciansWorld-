@@ -506,6 +506,26 @@ a.admin-activity-row:hover { background: var(--a-row-hover); }
 .a-auth-card h2 { margin: 6px 0 0; font-family: "Barlow Condensed", sans-serif; font-size: 34px; line-height: 1; text-transform: uppercase; }
 .a-auth-card > p { margin: 8px 0 0; color: var(--a-text-2); font-size: 13.5px; }
 .a-auth-form { display: grid; gap: 14px; margin-top: 24px; }
+.a-auth-form .a-input {
+  min-height: 48px;
+  border-color: #d5dbe8;
+  background: #ffffff;
+  color: #12121c;
+  color-scheme: light;
+  font-size: 15px;
+}
+.a-auth-form .a-input::placeholder { color: #6d7588; }
+.a-auth-form .a-input:focus { border-color: var(--a-accent); box-shadow: 0 0 0 3px var(--a-accent-soft); }
+.a-auth-form .a-input:-webkit-autofill { -webkit-text-fill-color: #12121c; box-shadow: 0 0 0 1000px #ffffff inset; }
+.a-password { position: relative; display: block; }
+.a-password .a-input { padding-right: 48px; }
+.a-eye {
+  position: absolute; top: 50%; right: 6px; display: grid; width: 36px; height: 36px; place-items: center;
+  border: 0; border-radius: 8px; background: transparent; color: #3c4456; cursor: pointer; transform: translateY(-50%);
+}
+.a-eye:hover, .a-eye:focus-visible { background: #eef2f8; color: #12121c; outline: 0; }
+.a-eye svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.a-eye .is-hidden { display: none; }
 .a-auth-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 12.5px; }
 .a-auth-foot { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--a-border); color: var(--a-muted); font-size: 12.5px; text-align: center; }
 .a-auth-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }

@@ -1012,3 +1012,80 @@
     object-position: center 40%;
   }
 }
+
+.login-form > label {
+  display: grid;
+  gap: 0;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.login-form .login-input {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  border: 1px solid #d5dbe8;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #12121c;
+  color-scheme: light;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+.login-form .login-input::placeholder {
+  color: #6d7588;
+}
+.login-form .login-input:focus {
+  border-color: var(--mark);
+  outline: 0;
+  box-shadow: 0 0 0 3px var(--glow);
+}
+.login-form .login-input:-webkit-autofill {
+  -webkit-text-fill-color: #12121c;
+  box-shadow: 0 0 0 1000px #ffffff inset;
+}
+.login-password {
+  position: relative;
+  display: block;
+}
+.login-password .login-input {
+  padding-right: 52px;
+}
+.login-eye {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #3c4456;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+.login-eye:hover,
+.login-eye:focus-visible {
+  background: #eef2f8;
+  color: #12121c;
+  outline: 0;
+}
+.login-eye svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.login-eye .is-hidden {
+  display: none;
+}

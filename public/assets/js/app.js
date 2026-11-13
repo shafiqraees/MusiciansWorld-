@@ -75,4 +75,19 @@
     if (el.getBoundingClientRect().top < window.innerHeight * 0.92) el.classList.add("is-in");
     window.setTimeout(() => el.classList.add("is-in"), 1200);
   });
+
+  document.querySelectorAll("[data-reveal-password]").forEach((button) => {
+    const input = document.getElementById(button.getAttribute("aria-controls"));
+    const openIcon = button.querySelector("[data-eye-open]");
+    const shutIcon = button.querySelector("[data-eye-shut]");
+    if (!input) return;
+    button.addEventListener("click", () => {
+      const show = input.type === "password";
+      input.type = show ? "text" : "password";
+      button.setAttribute("aria-pressed", show ? "true" : "false");
+      button.setAttribute("aria-label", show ? "Hide password" : "Show password");
+      openIcon?.classList.toggle("is-hidden", show);
+      shutIcon?.classList.toggle("is-hidden", !show);
+    });
+  });
 })();

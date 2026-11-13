@@ -146,4 +146,19 @@
   document.querySelectorAll(".a-alert.success[data-autodismiss]").forEach((alert) => {
     setTimeout(() => { alert.style.transition = "opacity .4s"; alert.style.opacity = "0"; setTimeout(() => alert.remove(), 450); }, 6000);
   });
+
+  document.querySelectorAll("[data-reveal-password]").forEach((button) => {
+    const input = document.getElementById(button.getAttribute("aria-controls"));
+    const openIcon = button.querySelector("[data-eye-open]");
+    const shutIcon = button.querySelector("[data-eye-shut]");
+    if (!input) return;
+    button.addEventListener("click", () => {
+      const show = input.type === "password";
+      input.type = show ? "text" : "password";
+      button.setAttribute("aria-pressed", show ? "true" : "false");
+      button.setAttribute("aria-label", show ? "Hide password" : "Show password");
+      openIcon?.classList.toggle("is-hidden", show);
+      shutIcon?.classList.toggle("is-hidden", !show);
+    });
+  });
 })();
