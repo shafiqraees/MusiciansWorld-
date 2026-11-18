@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('mwcn:retry-integrations')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('mwcn:sms-reminders')->everyFifteenMinutes()->withoutOverlapping();

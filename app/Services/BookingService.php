@@ -222,10 +222,31 @@ class BookingService
         }, 3);
     }
 
-    private function rangeIsFree(Resource $resource, CarbonImmutable $start, CarbonImmutable $end, bool $lock = false): bool
+    public function refreshHold(Booking $booking): void
+    {
+        $start = CarbonImmutable::instance($booking->starts_at);
+        $end = CarbonImmutable::instance($booking->ends_at);
+        if ($start->lessThan(CarbonImmutable::now())) {
+            throw new RuntimeException('PAST');
+        }
+
+        DB::transaction(function () use ($booking, $start, $end): void {
+            $resource = Resource::query()->whereKey($booking->resource_id)->lockForUpdate()->firstOrFail();
+            if (! $this->rangeIsFree($resource, $start, $end, true, $booking->id)) {
+                throw new RuntimeException('UNAVAILABLE');
+            }
+
+            $booking->update([
+                'hold_expires_at' => now()->addMinutes((int) PlatformSetting::valueOf('checkout_hold_minutes', 45)),
+            ]);
+        }, 3);
+    }
+
+    private function rangeIsFree(Resource $resource, CarbonImmutable $start, CarbonImmutable $end, bool $lock = false, ?int $ignoreBookingId = null): bool
     {
         $bookingQuery = Booking::query()
             ->where('resource_id', $resource->id)
+            ->when($ignoreBookingId, fn ($query) => $query->whereKeyNot($ignoreBookingId))
             ->where('starts_at', '<', $end)
             ->where('ends_at', '>', $start)
             ->where(function ($query) {

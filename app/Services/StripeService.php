@@ -31,7 +31,7 @@ class StripeService
                     'currency' => $this->checkoutCurrency($booking->currency),
                     'unit_amount' => $booking->total_cents,
                     'product_data' => [
-                        'name' => 'Studio A — '.$local->format('m/d/Y H:i').' – '.$booking->ends_at->copy()->timezone($booking->resource->timezone)->format('m/d/Y H:i'),
+                        'name' => 'Studio A — '.$local->format('m/d/Y g:i A').' – '.$booking->ends_at->copy()->timezone($booking->resource->timezone)->format('g:i A'),
                         'description' => 'MusiciansWorld Studio A booking',
                     ],
                 ],

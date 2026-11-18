@@ -10,9 +10,13 @@ use App\Models\Order;
 use App\Models\Resource;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\StripeService;
+use App\Support\Finance;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Mockery\MockInterface;
+use Stripe\Checkout\Session;
 use Tests\TestCase;
 
 class CustomerDashboardTest extends TestCase
@@ -160,6 +164,158 @@ class CustomerDashboardTest extends TestCase
         $this->assertStringContainsString('Please move this to Friday', $booking->notes);
     }
 
+    public function test_pending_booking_page_offers_payment_and_keeps_the_stored_time(): void
+    {
+        $user = $this->customer();
+        $studio = Resource::where('slug', 'studio-a')->firstOrFail();
+        $starts = now()->addDays(4)->setTime(20, 0);
+        $booking = Booking::create([
+            'reference' => 'BKG-PAY-1',
+            'user_id' => $user->id,
+            'resource_id' => $studio->id,
+            'service_type' => 'studio_booking',
+            'starts_at' => $starts,
+            'ends_at' => $starts->copy()->addHours(2),
+            'status' => 'pending_payment',
+            'payment_status' => 'pending',
+            'hold_expires_at' => now()->subMinutes(5),
+            'subtotal_cents' => 8000,
+            'total_cents' => 8000,
+            'customer_name' => $user->name,
+            'customer_email' => $user->email,
+        ]);
+
+        $this->mock(StripeService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('bookingCheckout')->once()->andReturn(Session::constructFrom([
+                'id' => 'cs_portal_pay',
+                'url' => 'https://checkout.stripe.test/portal',
+            ]));
+        });
+
+        $this->actingAs($user)->get(route('account.bookings'))
+            ->assertOk()
+            ->assertSee('Pay $80.00')
+            ->assertSee('BKG-PAY-1');
+
+        $this->actingAs($user)->post(route('account.bookings.pay', $booking))
+            ->assertRedirect('https://checkout.stripe.test/portal');
+
+        $booking->refresh();
+        $this->assertSame('cs_portal_pay', $booking->stripe_checkout_session_id);
+        $this->assertSame('pending_payment', $booking->status);
+        $this->assertSame('pending', $booking->payment_status);
+        $this->assertSame($starts->format('Y-m-d H:i'), $booking->starts_at->format('Y-m-d H:i'));
+        $this->assertTrue($booking->hold_expires_at->isFuture());
+    }
+
+    public function test_another_customer_cannot_pay_a_pending_booking(): void
+    {
+        $owner = $this->customer();
+        $other = User::create([
+            'name' => 'Other Member',
+            'email' => 'other.member@example.com',
+            'password' => Hash::make('Password123'),
+        ]);
+        $studio = Resource::where('slug', 'studio-a')->firstOrFail();
+        $starts = now()->addDays(6)->setTime(16, 0);
+        $booking = Booking::create([
+            'reference' => 'BKG-PAY-2',
+            'user_id' => $owner->id,
+            'resource_id' => $studio->id,
+            'service_type' => 'studio_booking',
+            'starts_at' => $starts,
+            'ends_at' => $starts->copy()->addHour(),
+            'status' => 'pending_payment',
+            'payment_status' => 'pending',
+            'hold_expires_at' => now()->addMinutes(20),
+            'subtotal_cents' => 4000,
+            'total_cents' => 4000,
+            'customer_name' => $owner->name,
+            'customer_email' => $owner->email,
+        ]);
+
+        $this->mock(StripeService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('bookingCheckout')->never();
+        });
+
+        $this->actingAs($other)->post(route('account.bookings.pay', $booking))->assertForbidden();
+        $this->assertNull($booking->fresh()->stripe_checkout_session_id);
+    }
+
+    public function test_paid_booking_cannot_be_paid_again(): void
+    {
+        $user = $this->customer();
+        $studio = Resource::where('slug', 'studio-a')->firstOrFail();
+        $starts = now()->addDays(7)->setTime(18, 0);
+        $booking = Booking::create([
+            'reference' => 'BKG-PAY-3',
+            'user_id' => $user->id,
+            'resource_id' => $studio->id,
+            'service_type' => 'studio_booking',
+            'starts_at' => $starts,
+            'ends_at' => $starts->copy()->addHour(),
+            'status' => 'confirmed',
+            'payment_status' => 'paid',
+            'subtotal_cents' => 4000,
+            'total_cents' => 4000,
+            'customer_name' => $user->name,
+            'customer_email' => $user->email,
+        ]);
+
+        $this->mock(StripeService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('bookingCheckout')->never();
+        });
+
+        $this->actingAs($user)->post(route('account.bookings.pay', $booking))->assertUnprocessable();
+    }
+
+    public function test_pending_payment_is_refused_when_the_slot_was_taken(): void
+    {
+        $user = $this->customer();
+        $studio = Resource::where('slug', 'studio-a')->firstOrFail();
+        $starts = now()->addDays(8)->setTime(19, 0);
+        Booking::create([
+            'reference' => 'BKG-TAKEN',
+            'user_id' => $user->id,
+            'resource_id' => $studio->id,
+            'service_type' => 'studio_booking',
+            'starts_at' => $starts,
+            'ends_at' => $starts->copy()->addHour(),
+            'status' => 'confirmed',
+            'payment_status' => 'paid',
+            'subtotal_cents' => 4000,
+            'total_cents' => 4000,
+            'customer_name' => $user->name,
+            'customer_email' => $user->email,
+        ]);
+        $pending = Booking::create([
+            'reference' => 'BKG-PAY-4',
+            'user_id' => $user->id,
+            'resource_id' => $studio->id,
+            'service_type' => 'studio_booking',
+            'starts_at' => $starts,
+            'ends_at' => $starts->copy()->addHour(),
+            'status' => 'pending_payment',
+            'payment_status' => 'pending',
+            'hold_expires_at' => now()->subMinute(),
+            'subtotal_cents' => 4000,
+            'total_cents' => 4000,
+            'customer_name' => $user->name,
+            'customer_email' => $user->email,
+        ]);
+
+        $this->mock(StripeService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('bookingCheckout')->never();
+        });
+
+        $this->actingAs($user)->from(route('account.bookings'))
+            ->post(route('account.bookings.pay', $pending))
+            ->assertRedirect(route('account.bookings'))
+            ->assertSessionHasErrors(['booking' => 'That time is no longer available. Choose another open slot.']);
+
+        $this->assertNull($pending->fresh()->stripe_checkout_session_id);
+    }
+
     public function test_customer_receipts_hide_organizer_ledger_rows(): void
     {
         $user = $this->customer();
@@ -218,7 +374,7 @@ class CustomerDashboardTest extends TestCase
         $this->actingAs($organizer)->get(route('account.events'))
             ->assertOk()
             ->assertSee($event->title)
-            ->assertSee('MWCN fee ('.\App\Support\Finance::percent($feeBps).')', false)
+            ->assertSee('MWCN fee ('.Finance::percent($feeBps).')', false)
             ->assertSee('Your proceeds');
         $this->actingAs($organizer)->get(route('account.events.show', $event))
             ->assertOk()

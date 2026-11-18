@@ -12,9 +12,11 @@
 
   function formatClock(minutes) {
     const wrapped = ((minutes % (24 * 60)) + 24 * 60) % (24 * 60);
-    const h = Math.floor(wrapped / 60);
-    const m = wrapped % 60;
-    return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
+    const hour = Math.floor(wrapped / 60);
+    const minute = wrapped % 60;
+    const suffix = hour >= 12 ? "PM" : "AM";
+    const hour12 = hour % 12 || 12;
+    return hour12 + ":" + String(minute).padStart(2, "0") + " " + suffix;
   }
 
   function addDays(iso, days) {
@@ -89,6 +91,7 @@
     phone: customer.phone || "",
     notes: "",
     coupon: "",
+    smsConsent: false,
     pricing: null,
     error: "",
     busy: false,
@@ -133,6 +136,7 @@
     state.phone = String(fd.get("phone") || "").trim();
     state.notes = String(fd.get("notes") || "").trim();
     state.coupon = String(fd.get("coupon") || "").trim().toUpperCase();
+    state.smsConsent = form.querySelector('[name="smsConsent"]')?.checked === true;
   }
 
   function money(cents) {
@@ -149,6 +153,12 @@
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(state.email)) {
       state.error = "Enter a valid email address.";
+      state.step = "details";
+      render();
+      return;
+    }
+    if (state.smsConsent && state.phone.replace(/\D/g, "").length < 10) {
+      state.error = "Enter a mobile number to receive text messages.";
       state.step = "details";
       render();
       return;
@@ -172,6 +182,7 @@
         email: state.email,
         phone: state.phone,
         notes: state.notes,
+        smsConsent: state.smsConsent,
         coupon: state.pricing && state.pricing.couponApplied ? state.coupon : "",
       }),
     });
@@ -300,6 +311,10 @@
           <p class="text-xs text-dim">A first-time client rate cannot be combined with a code.</p>
           <label class="block"><span class="mb-1 block text-xs tracking-[0.14em] text-dim uppercase">Notes</span>
             <textarea name="notes" class="w-full border border-line bg-bg px-3 py-2" rows="3">${escapeHtml(state.notes)}</textarea></label>
+          <label class="flex items-start gap-3 text-sm leading-6 text-dim">
+            <input name="smsConsent" type="checkbox" class="mt-1" ${state.smsConsent ? "checked" : ""} />
+            <span>I agree to receive automated appointment confirmations and reminders via SMS. Message &amp; data rates may apply. Reply STOP to opt out.</span>
+          </label>
           <p class="text-xs text-dim">By submitting, you agree to our <a class="text-mark" href="${(window.MW && window.MW.base) || ""}/privacy">Privacy Policy</a> and <a class="text-mark" href="${(window.MW && window.MW.base) || ""}/terms">Terms and Conditions</a>.</p>
           ${state.error ? `<p class="text-sm text-danger">${escapeHtml(state.error)}</p>` : ""}
           <div class="flex gap-2 pt-1">
@@ -329,7 +344,7 @@
         </div>
         ${
           blocked
-            ? `<p class="mt-4 border border-danger/40 bg-danger/10 p-3 text-sm">${escapeHtml(state.quote.status === "closed" ? "Studio A is closed between 02:00 and 09:00." : state.quote.status === "past" ? "That time has already passed. Choose a later open slot." : "That range is unavailable. Choose two open slots.")}</p>`
+            ? `<p class="mt-4 border border-danger/40 bg-danger/10 p-3 text-sm">${escapeHtml(state.quote.status === "closed" ? "Studio A is closed between 2:00 AM and 9:00 AM." : state.quote.status === "past" ? "That time has already passed. Choose a later open slot." : "That range is unavailable. Choose two open slots.")}</p>`
             : ""
         }
         <button class="btn btn-mark mt-6 w-full" type="button" data-act="continue" ${!state.fromIso || !state.toIso || !state.quote || blocked ? "disabled" : ""}>Review from and to</button>
@@ -395,6 +410,7 @@
             ${confirmRow("Email", state.email)}
             ${confirmRow("Phone", state.phone)}
             ${confirmRow("Notes", state.notes)}
+            ${confirmRow("Text messages", state.smsConsent ? "Yes" : "No")}
           </dl>
           ${state.pricing && state.pricing.message ? `<p class="mt-3 text-sm">${escapeHtml(state.pricing.message)}</p>` : ""}
           <p class="mt-4 text-sm">Add this time to your calendar. The email is sent after payment.</p>
@@ -423,6 +439,12 @@
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(state.email)) {
       state.error = "Enter a valid email address.";
+      state.step = "details";
+      render();
+      return;
+    }
+    if (state.smsConsent && state.phone.replace(/\D/g, "").length < 10) {
+      state.error = "Enter a mobile number to receive text messages.";
       state.step = "details";
       render();
       return;
@@ -544,6 +566,10 @@
   function onFieldEdit(e) {
     const el = e.target;
     if (!el || !el.name) return;
+    if (el.name === "smsConsent") {
+      state.smsConsent = el.checked === true;
+      return;
+    }
     if (el.name === "name" || el.name === "email" || el.name === "phone" || el.name === "notes" || el.name === "coupon") {
       state[el.name] = el.name === "coupon" ? el.value.trim().toUpperCase() : el.value;
     }

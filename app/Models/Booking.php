@@ -1,5 +1,30 @@
 <?php
-namespace App\Models;
-use Illuminate\Database\Eloquent\Model;
-class Booking extends Model { protected $guarded=[]; protected function casts(): array { return ['starts_at'=>'datetime','ends_at'=>'datetime','hold_expires_at'=>'datetime','meta'=>'array']; } public function user(){ return $this->belongsTo(User::class); } public function resource(){ return $this->belongsTo(Resource::class); } public function transactions(){ return $this->morphMany(FinancialTransaction::class,'transactable'); } }
 
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Booking extends Model
+{
+    protected $guarded = [];
+
+    protected function casts(): array
+    {
+        return ['starts_at' => 'datetime', 'ends_at' => 'datetime', 'hold_expires_at' => 'datetime', 'meta' => 'array', 'sms_consent' => 'boolean', 'sms_consent_at' => 'datetime', 'sms_confirmation_sent_at' => 'datetime', 'sms_reminder_sent_at' => 'datetime'];
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function resource()
+    {
+        return $this->belongsTo(Resource::class);
+    }
+
+    public function transactions()
+    {
+        return $this->morphMany(FinancialTransaction::class, 'transactable');
+    }
+}

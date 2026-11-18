@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Booking;
 use App\Models\Event;
 use App\Models\IntegrationJob;
+use App\Services\BookingSms;
 use App\Services\MicrosoftCalendarService;
 use App\Services\NotificationService;
 use Illuminate\Console\Command;
@@ -16,12 +17,12 @@ class RetryIntegrations extends Command
 
     protected $description = 'Retry failed MWCN calendar and email integrations safely';
 
-    public function handle(MicrosoftCalendarService $calendar, NotificationService $notifications): int
+    public function handle(MicrosoftCalendarService $calendar, NotificationService $notifications, BookingSms $texts): int
     {
         IntegrationJob::whereIn('status', ['pending', 'failed'])
             ->where(fn ($query) => $query->whereNull('next_attempt_at')->orWhere('next_attempt_at', '<=', now()))
             ->where('attempts', '<', 10)->orderBy('id')->limit(100)->get()
-            ->each(function (IntegrationJob $job) use ($calendar, $notifications) {
+            ->each(function (IntegrationJob $job) use ($calendar, $notifications, $texts) {
                 $job->update(['status' => 'processing', 'attempts' => $job->attempts + 1]);
                 try {
                     if ($job->integration === 'microsoft_graph' && $job->action === 'sync_booking') {
@@ -47,6 +48,16 @@ class RetryIntegrations extends Command
                         $calendar->cancelEvent($event);
                         if ($event->fresh()->calendar_sync_status !== 'cancelled') {
                             throw new \RuntimeException($event->fresh()->calendar_sync_error ?: 'Calendar cancellation failed.');
+                        }
+                    } elseif ($job->integration === 'nextiva' && $job->action === 'sms_confirmation') {
+                        $booking = Booking::with('resource')->findOrFail($job->subject_id);
+                        if (! $texts->sendConfirmation($booking, false)) {
+                            throw new \RuntimeException('SMS delivery failed.');
+                        }
+                    } elseif ($job->integration === 'nextiva' && $job->action === 'sms_reminder') {
+                        $booking = Booking::with('resource')->findOrFail($job->subject_id);
+                        if (! $texts->sendReminder($booking, false)) {
+                            throw new \RuntimeException('SMS delivery failed.');
                         }
                     } elseif ($job->integration === 'email' && $job->action === 'booking_customer') {
                         $booking = Booking::with('resource')->findOrFail($job->subject_id);

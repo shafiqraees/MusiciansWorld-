@@ -31,6 +31,11 @@
           <div><strong>{{ $booking->resource->name ?? 'Studio A' }}</strong><span>From {{ $booking->starts_at->timezone($booking->resource->timezone ?? 'America/Phoenix')->format('m/d/Y g:i A') }} to {{ $booking->ends_at->timezone($booking->resource->timezone ?? 'America/Phoenix')->format('m/d/Y g:i A') }}</span></div>
           {!! acct_badge($booking->status) !!}
         </div>
+        @if(in_array($booking->status, ['pending_payment', 'hold'], true) && $booking->payment_status === 'pending')
+          <form method="post" action="{{ route('account.bookings.pay', $booking) }}" style="margin-top:.75rem">@csrf
+            <button class="btn btn-mark" type="submit">Pay {{ a_money($booking->total_cents) }}</button>
+          </form>
+        @endif
       </div>
     @empty
       <p class="acct-empty">No upcoming studio bookings. <a href="/book">Reserve time in Studio A</a>.</p>

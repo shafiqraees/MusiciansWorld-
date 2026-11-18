@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Resource;
 use App\Services\BookingService;
+use App\Services\BookingSms;
 use App\Services\ClientPricing;
 use App\Services\CustomerAccountService;
+use App\Services\NextivaSms;
 use App\Services\NotificationService;
 use App\Services\StripeService;
 use Carbon\CarbonImmutable;
@@ -118,7 +120,7 @@ class BookingController extends Controller
         return response()->json($this->legacyPayload($booking));
     }
 
-    public function store(Request $request, BookingService $bookings, StripeService $stripe, CustomerAccountService $accounts, ClientPricing $pricing, NotificationService $notifications)
+    public function store(Request $request, BookingService $bookings, StripeService $stripe, CustomerAccountService $accounts, ClientPricing $pricing, NotificationService $notifications, NextivaSms $nextiva, BookingSms $texts)
     {
         $data = $request->validate([
             'resourceId' => ['required', 'in:studio-a'],
@@ -133,7 +135,14 @@ class BookingController extends Controller
             'notes' => ['nullable', 'string', 'max:3000'],
             'coupon' => ['nullable', 'string', 'max:40'],
             'price' => ['nullable', 'integer'],
+            'smsConsent' => ['nullable', 'boolean'],
         ]);
+        $smsConsent = $request->boolean('smsConsent');
+        if ($smsConsent && $nextiva->toE164($data['phone'] ?? null) === null) {
+            throw ValidationException::withMessages([
+                'phone' => 'Enter a mobile number to receive text messages.',
+            ]);
+        }
 
         try {
             $user = $accounts->resolve($request->user(), [
@@ -154,8 +163,13 @@ class BookingController extends Controller
                 throw ValidationException::withMessages(['price' => 'Price mismatch']);
             }
             $session = $stripe->bookingCheckout($booking->load('resource'));
-            $booking->update(['stripe_checkout_session_id' => $session->id]);
+            $booking->update([
+                'stripe_checkout_session_id' => $session->id,
+                'sms_consent' => $smsConsent,
+                'sms_consent_at' => $smsConsent ? now() : null,
+            ]);
             $notifications->bookingLeadAfterResponse($booking);
+            $texts->confirmationAfterResponse($booking);
 
             $localStart = $booking->starts_at->copy()->timezone($booking->resource->timezone);
             $localEnd = $booking->ends_at->copy()->timezone($booking->resource->timezone);

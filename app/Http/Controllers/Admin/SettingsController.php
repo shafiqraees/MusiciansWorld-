@@ -195,8 +195,16 @@ class SettingsController extends Controller
         return [
             ['name' => 'Stripe payments', 'connected' => $stripeSecret !== '', 'mode' => str_starts_with($stripeSecret, 'sk_live') ? 'Live mode' : ($stripeSecret ? 'Test mode' : 'Not configured'),
                 'detail' => config('services.stripe.webhook_secret') ? 'Webhook signing secret present' : 'Webhook signing secret missing', 'env' => ['STRIPE_KEY', 'STRIPE_SECRET', 'STRIPE_WEBHOOK_SECRET']],
-            ['name' => 'Email delivery', 'connected' => config('mail.default') === 'smtp' && config('mail.mailers.smtp.host'), 'mode' => ucfirst((string) config('mail.default')),
-                'detail' => (string) config('mail.mailers.smtp.host').' · from '.config('mail.from.address'), 'env' => ['MAIL_HOST', 'MAIL_USERNAME', 'MAIL_FROM_ADDRESS']],
+            ['name' => 'Email delivery', 'connected' => config('mail.default') === 'microsoft-graph'
+                ? filled(config('services.microsoft.mail.client_secret')) && filled(config('services.microsoft.mail.mailbox'))
+                : config('mail.default') === 'smtp' && config('mail.mailers.smtp.host'),
+                'mode' => config('mail.default') === 'microsoft-graph' ? 'Microsoft Graph' : ucfirst((string) config('mail.default')),
+                'detail' => config('mail.default') === 'microsoft-graph'
+                    ? 'sendMail as '.config('services.microsoft.mail.mailbox')
+                    : (string) config('mail.mailers.smtp.host').' · from '.config('mail.from.address'),
+                'env' => config('mail.default') === 'microsoft-graph'
+                    ? ['MICROSOFT_MAIL_TENANT_ID', 'MICROSOFT_MAIL_CLIENT_ID', 'MICROSOFT_MAIL_CLIENT_SECRET', 'MICROSOFT_MAIL_MAILBOX']
+                    : ['MAIL_HOST', 'MAIL_USERNAME', 'MAIL_FROM_ADDRESS']],
             ['name' => 'Microsoft 365 calendars', 'connected' => (bool) config('services.microsoft.client_id'), 'mode' => config('services.microsoft.client_id') ? 'Entra app registered' : 'Not configured',
                 'detail' => collect([
                     config('services.microsoft.studio_calendar') ? 'Studio A mapped' : null,
@@ -204,6 +212,9 @@ class SettingsController extends Controller
                     config('services.microsoft.events_calendar') ? 'Events calendar mapped' : null,
                 ])->filter()->implode(' · ') ?: 'Calendar mailboxes not mapped',
                 'env' => ['MICROSOFT_TENANT_ID', 'MICROSOFT_CLIENT_ID', 'MICROSOFT_CLIENT_SECRET', 'MICROSOFT_EVENTS_CALENDAR']],
+            ['name' => 'Nextiva text messages', 'connected' => filled(config('services.nextiva.username')) && filled(config('services.nextiva.from')), 'mode' => filled(config('services.nextiva.campaign_id')) ? 'Campaign set' : 'Waiting for 10DLC campaign',
+                'detail' => filled(config('services.nextiva.from')) ? 'From '.config('services.nextiva.from') : 'Business number not set',
+                'env' => ['NEXTIVA_USERNAME', 'NEXTIVA_PASSWORD', 'NEXTIVA_FROM', 'NEXTIVA_CAMPAIGN_ID']],
             ['name' => 'Background queue', 'connected' => ! IntegrationJob::where('status', 'failed')->exists(), 'mode' => ucfirst((string) config('queue.default')).' driver',
                 'detail' => IntegrationJob::where('status', 'failed')->count().' failed automation jobs', 'env' => ['QUEUE_CONNECTION']],
         ];

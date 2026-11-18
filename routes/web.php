@@ -83,6 +83,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/account/benefits', [AccountController::class, 'benefits'])->name('account.benefits');
     Route::get('/account/bookings', [AccountController::class, 'bookings'])->name('account.bookings');
     Route::post('/account/bookings/{booking}/change-request', [AccountController::class, 'requestBookingChange'])->name('account.bookings.change');
+    Route::post('/account/bookings/{booking}/pay', [AccountController::class, 'payBooking'])->name('account.bookings.pay');
     Route::get('/account/dj-school', [AccountController::class, 'school'])->name('account.school');
     Route::get('/account/tickets', [AccountController::class, 'tickets'])->name('account.tickets');
     Route::get('/account/events', [AccountController::class, 'events'])->name('account.events');

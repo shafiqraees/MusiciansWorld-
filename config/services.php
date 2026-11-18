@@ -36,6 +36,20 @@ return [
         'studio_calendar' => env('MICROSOFT_STUDIO_CALENDAR'),
         'soundtunnel_calendar' => env('MICROSOFT_SOUNDTUNNEL_CALENDAR'),
         'events_calendar' => env('MICROSOFT_EVENTS_CALENDAR'),
+        'mail' => [
+            'tenant_id' => env('MICROSOFT_MAIL_TENANT_ID'),
+            'client_id' => env('MICROSOFT_MAIL_CLIENT_ID'),
+            'client_secret' => env('MICROSOFT_MAIL_CLIENT_SECRET'),
+            'mailbox' => env('MICROSOFT_MAIL_MAILBOX', 'booking@wavemakerconcepts.com'),
+        ],
+    ],
+
+    'nextiva' => [
+        'username' => env('NEXTIVA_USERNAME'),
+        'password' => env('NEXTIVA_PASSWORD'),
+        'from' => env('NEXTIVA_FROM'),
+        'campaign_id' => env('NEXTIVA_CAMPAIGN_ID'),
+        'base_url' => env('NEXTIVA_BASE_URL', 'https://api.nextiva.com'),
     ],
 
     'mwcn' => [

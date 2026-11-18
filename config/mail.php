@@ -30,7 +30,7 @@ return [
     | your mailers below. You may also add additional mailers if needed.
     |
     | Supported: "smtp", "sendmail", "mailgun", "ses", "ses-v2",
-    |            "postmark", "resend", "log", "array",
+    |            "postmark", "resend", "microsoft-graph", "log", "array",
     |            "failover", "roundrobin"
     |
     */
@@ -77,6 +77,10 @@ return [
 
         'array' => [
             'transport' => 'array',
+        ],
+
+        'microsoft-graph' => [
+            'transport' => 'microsoft-graph',
         ],
 
         'failover' => [

@@ -46,6 +46,13 @@
         <div><dt>Booked</dt><dd>{{ $booking->created_at->format('m/d/Y') }}</dd></div>
         @if($booking->notes)<div><dt>Notes</dt><dd style="white-space:pre-line">{{ $booking->notes }}</dd></div>@endif
       </dl>
+      @if(in_array($booking->status, ['pending_payment', 'hold'], true) && $booking->payment_status === 'pending')
+        <div class="acct-actions">
+          <form method="post" action="{{ route('account.bookings.pay', $booking) }}">@csrf
+            <button class="btn btn-mark" type="submit">Pay {{ a_money($booking->total_cents) }}</button>
+          </form>
+        </div>
+      @endif
       @if($booking->status === 'confirmed')
         <div class="acct-actions">
           <form method="post" action="{{ route('account.bookings.change', $booking) }}">@csrf

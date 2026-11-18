@@ -7,7 +7,7 @@ page_start(
 page_hero(
     "Privacy Policy",
     "Your<br />information.",
-    "Effective November 5, 2026. Last updated November 5, 2026.",
+    "Effective November 5, 2026. Last updated November 13, 2026.",
     $MEDIA["about"]
 );
 ?>
@@ -53,7 +53,8 @@ page_hero(
       <li class="border-l-2 border-mark pl-4">Authorities when the law requires it or to protect safety, rights, or property</li>
       <li class="border-l-2 border-mark pl-4">A successor if the organization is reorganized or transferred</li>
     </ul>
-    <p class="mt-4 leading-8 text-dim">Our providers may include Microsoft (Outlook, Teams, Bookings, and Forms), TicketSpice, Stripe, Meta (Facebook and Instagram), and similar services. They may only use your information to provide services to us.</p>
+    <p class="mt-4 leading-8 text-dim">Our providers may include Microsoft (Outlook, Teams, Bookings, and Forms), Nextiva for appointment text messages, TicketSpice, Stripe, Meta (Facebook and Instagram), and similar services. They may only use your information to provide services to us.</p>
+    <p class="mt-4 leading-8 text-dim">Mobile opt-in data. If you check the SMS consent box on a booking form, we use that phone number only to send the appointment texts you agreed to, such as booking confirmations and reminders. We do not share mobile opt-in data or consent records with third parties for their marketing purposes.</p>
 
     <h2 class="display mt-10 text-3xl">4. Cookies and advertising tools</h2>
     <p class="mt-4 leading-8 text-dim">The Website uses cookies to keep it working, remember your settings, and understand how visitors use it. We may also use advertising tools, such as the Meta pixel, to measure and improve our ads and to show our ads to people who visited the Website. You can control cookies in your browser settings and opt out of personalized ads in your Facebook and Instagram ad settings.</p>
@@ -62,7 +63,7 @@ page_hero(
     <p class="mt-4 leading-8 text-dim">By attending an event or visiting our spaces, you agree that you may be photographed or recorded and that we may use these photos and videos for the organization and its promotion. If you do not want to appear, tell a staff member or email us and we will make reasonable efforts to respect that.</p>
 
     <h2 class="display mt-10 text-3xl">6. Marketing messages</h2>
-    <p class="mt-4 leading-8 text-dim">If you receive marketing emails or texts from us, you can opt out at any time with the unsubscribe link or by replying STOP to a text. We will still send service messages about your booking, enrollment, membership, or ticket.</p>
+    <p class="mt-4 leading-8 text-dim">Appointment texts are sent only when you check the SMS consent box. Message and data rates may apply. You can opt out of those texts at any time by replying STOP. If you receive marketing emails or texts from us, you can opt out with the unsubscribe link or by replying STOP. We will still send service messages about your booking, enrollment, membership, or ticket when you have asked for them.</p>
 
     <h2 class="display mt-10 text-3xl">7. How long we keep information</h2>
     <p class="mt-4 leading-8 text-dim">We keep your information as long as needed to provide our services, keep business and tax records, and meet legal duties. We keep financial and tax records for 7 years. After a record is no longer needed, we delete or anonymize it.</p>

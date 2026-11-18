@@ -12,11 +12,13 @@ use App\Models\FinancialTransaction;
 use App\Models\MembershipPlan;
 use App\Models\Order;
 use App\Models\User;
+use App\Services\BookingService;
 use App\Services\ClientPricing;
 use App\Services\StripeService;
 use App\Support\Finance;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -323,6 +325,34 @@ class AccountController extends Controller
         $this->audit($request, 'booking.change_requested', $booking, null, ['message' => $data['message']]);
 
         return redirect()->route('account.bookings')->with('success', 'Change request sent for '.$booking->reference.'. The booking stays confirmed until MWCN updates it.');
+    }
+
+    public function payBooking(Request $request, Booking $booking, BookingService $bookings, StripeService $stripe)
+    {
+        abort_unless($booking->user_id === $request->user()->id, 403);
+        abort_unless(
+            $booking->payment_status === 'pending' && in_array($booking->status, ['pending_payment', 'hold'], true),
+            422,
+            'This booking is not waiting for payment.'
+        );
+
+        try {
+            $bookings->refreshHold($booking);
+            $session = $stripe->bookingCheckout($booking->fresh(['resource']));
+            $booking->update(['stripe_checkout_session_id' => $session->id]);
+        } catch (RuntimeException $exception) {
+            $message = match ($exception->getMessage()) {
+                'UNAVAILABLE' => 'That time is no longer available. Choose another open slot.',
+                'PAST' => 'That time has already passed.',
+                default => 'Could not start payment. Please try again shortly.',
+            };
+
+            return back()->withErrors(['booking' => $message]);
+        } catch (Throwable) {
+            return back()->withErrors(['booking' => 'Could not start payment. Please try again shortly.']);
+        }
+
+        return redirect()->away($session->url);
     }
 
     /* --------------------------------------------------------------- helpers */
